@@ -1,18 +1,18 @@
 /**
- * Pi Permission Suite — 公共类型
+ * Pi Permission Suite — Public Types
  */
 
-/** 审批模式 */
+/** Approval mode */
 export type ApprovalMode = "act" | "auto" | "ask" | "plan";
 
-/** 审批决策 */
+/** Approval decision */
 export interface ApprovalDecision {
   approved: boolean;
   source: "subagent" | "human";
   reason?: string;
 }
 
-/** 持久化状态 */
+/** Persistent state */
 export interface ApprovalState {
   mode: ApprovalMode;
   approved: number;

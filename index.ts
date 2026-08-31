@@ -1,10 +1,10 @@
 /**
  * Pi Permission Suite Extension
  *
- * 模式：Act / Auto / Ask / Plan
- * 快捷键：Ctrl+Q
- * 命令：/approval-mode
- * 工具：set_approval_mode (agent可调用)
+ * Modes: Act / Auto / Ask / Plan
+ * Shortcut: Ctrl+Q
+ * Command: /approval-mode
+ * Tool: set_approval_mode (callable by agent)
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
@@ -13,21 +13,21 @@ import { RuleEngine } from "./rules.ts";
 import { autoApprove } from "./approver.ts";
 import { Type } from "typebox";
 
-// ─── 模式配置 ──────────────────────────────────────────────────────
+// ─── Mode configuration ──────────────────────────────────────────────
 
 const RO = ["read", "grep", "find", "ls", "question", "questionnaire", "web_search", "fetch_content", "get_search_content", "get_subagent_result", "goal_complete", "steer_subagent", "Agent"];
 const ALL = [...RO, "bash", "edit", "write"];
 
 const MODE: Record<ApprovalMode, { tools: string[]; desc: string; icon: string }> = {
-  ask:  { tools: RO, desc: "只读问答", icon: "❓" },
-  auto: { tools: ALL, desc: "subagent审批", icon: "🤖" },
-  act:  { tools: ALL, desc: "完全权限", icon: "⚡" },
-  plan: { tools: RO, desc: "只读计划", icon: "📋" },
+  ask: { tools: RO, desc: "Read-only Q&A", icon: "❓" },
+  auto: { tools: ALL, desc: "Subagent approval", icon: "🤖" },
+  act: { tools: ALL, desc: "Full permission", icon: "⚡" },
+  plan: { tools: RO, desc: "Read-only plan", icon: "📋" },
 };
 
 const ORDER: ApprovalMode[] = ["act", "auto", "ask", "plan"];
 
-// ─── 共享状态 ──────────────────────────────────────────────────────
+// ─── Shared state ──────────────────────────────────────────────────────
 
 interface SuiteState {
   mode: ApprovalMode;
@@ -50,11 +50,11 @@ function updateStatus(state: SuiteState, ctx: ExtensionContext) {
   ctx.ui.setStatus("pi-permission-suite", ctx.ui.theme.fg("accent", `${cfg(state.mode).icon} ${state.mode.toUpperCase()}`));
 }
 
-// ─── 注册命令 ──────────────────────────────────────────────────────
+// ─── Register commands ──────────────────────────────────────────────────────
 
 function registerApprovalModeCommand(pi: ExtensionAPI, state: SuiteState): void {
   pi.registerCommand("approval-mode", {
-    description: "切换审批模式 (ask/auto/act/plan)",
+    description: "Switch approval mode (ask/auto/act/plan)",
     getArgumentCompletions: (p) => {
       const out: Array<{ value: string; label: string }> = [];
       for (const m of ORDER) {
@@ -66,7 +66,7 @@ function registerApprovalModeCommand(pi: ExtensionAPI, state: SuiteState): void 
       const t = args?.trim().toLowerCase() as ApprovalMode | undefined;
       if (t && MODE[t]) apply(state, t, pi);
       else {
-        const ch = await ctx.ui.select("模式：", ORDER.map((m) => ({ label: `${cfg(m).icon} ${m.toUpperCase()} — ${cfg(m).desc}`, value: m })));
+        const ch = await ctx.ui.select("Mode:", ORDER.map((m) => ({ label: `${cfg(m).icon} ${m.toUpperCase()} — ${cfg(m).desc}`, value: m })));
         if (ch) apply(state, ch, pi); else return;
       }
       ctx.ui.notify(`${cfg(state.mode).icon} ${state.mode.toUpperCase()}`, "info");
@@ -75,26 +75,26 @@ function registerApprovalModeCommand(pi: ExtensionAPI, state: SuiteState): void 
   });
 }
 
-// ─── 注册工具 ──────────────────────────────────────────────────────
+// ─── Register tools ──────────────────────────────────────────────────────
 
 function registerApprovalModeTool(pi: ExtensionAPI, state: SuiteState): void {
   pi.registerTool({
     name: "set_approval_mode",
     label: "Set Approval Mode",
-    description: `切换审批模式。
+    description: `Switch approval mode.
 
-可用模式：
-• act - 完全权限（默认）
-• auto - subagent审批
-• ask - 只读问答
-• plan - 只读计划`,
+Available modes:
+• act - Full permission (default)
+• auto - subagent approval
+• ask - Read-only Q&A
+• plan - Read-only plan`,
     parameters: Type.Object({
       mode: Type.Union([
         Type.Literal("act"),
         Type.Literal("auto"),
         Type.Literal("ask"),
         Type.Literal("plan"),
-      ], { description: "要切换的目标模式" }),
+      ], { description: "Target mode to switch to" }),
     }),
     execute: async (_id, params, _signal, _onUpdate, ctx) => {
       const m = params.mode as ApprovalMode;
@@ -103,17 +103,17 @@ function registerApprovalModeTool(pi: ExtensionAPI, state: SuiteState): void {
       ctx.ui.notify(`${cfg(m).icon} ${m.toUpperCase()} — ${cfg(m).desc}`, "info");
       updateStatus(state, ctx);
       return {
-        content: [{ type: "text" as const, text: `已从 ${prev} 切换到 ${m} 模式。${cfg(m).desc}` }],
+        content: [{ type: "text" as const, text: `Switched from ${prev} to ${m} mode. ${cfg(m).desc}` }],
       };
     },
   });
 }
 
-// ─── 注册快捷键 ────────────────────────────────────────────────────
+// ─── Register shortcut ────────────────────────────────────────────────────
 
 function registerApprovalShortcut(pi: ExtensionAPI, state: SuiteState): void {
   pi.registerShortcut("ctrl+q", {
-    description: "循环切换审批模式",
+    description: "Cycle through approval modes",
     handler: (ctx) => {
       const next = ORDER[(ORDER.indexOf(state.mode) + 1) % ORDER.length];
       apply(state, next, pi);
@@ -123,7 +123,7 @@ function registerApprovalShortcut(pi: ExtensionAPI, state: SuiteState): void {
   });
 }
 
-// ─── tool_call 处理 ────────────────────────────────────────────────
+// ─── tool_call handling ────────────────────────────────────────────────
 
 async function handleToolCall(
   event: { toolName: string; input: unknown },
@@ -133,36 +133,36 @@ async function handleToolCall(
   const toolName = event.toolName;
   const inp = event.input as Record<string, unknown>;
 
-  // 1. deny 规则（所有模式）— bash 用 tree-sitter 异步解析
+  // 1. Deny rules (all modes) — bash parsed asynchronously with tree-sitter
   const result = toolName === "bash"
     ? await state.rules.evaluateAsync(toolName, inp)
     : state.rules.evaluate(toolName, inp);
 
   if (result === "deny") {
-    const msg = state.rules.getDenyMessage(toolName, inp) ?? "被安全规则拒绝";
+    const msg = state.rules.getDenyMessage(toolName, inp) ?? "Blocked by security rules";
     state.stats.denied++;
     ctx.ui.notify(msg, "error");
     return { block: true, reason: msg };
   }
 
-  // 2. Act：全部放行
+  // 2. Act: allow all
   if (state.mode === "act") { state.stats.approved++; return undefined; }
 
-  // 3. Ask/Plan：只读（复用 ALLOW 规则，bash 只读命令也放行）
+  // 3. Ask/Plan: read-only (reuse ALLOW rules, bash read-only commands also allowed)
   if (state.mode === "ask" || state.mode === "plan") {
     if (result === "allow") {
       state.stats.approved++;
       return undefined;
     }
     state.stats.denied++;
-    return { block: true, reason: `${cfg(state.mode).icon} ${state.mode.toUpperCase()}: ${toolName} 已禁用` };
+    return { block: true, reason: `${cfg(state.mode).icon} ${state.mode.toUpperCase()}: ${toolName} disabled` };
   }
 
-  // 4. Auto：allow 放行，其余走 subagent
+  // 4. Auto: allow passes through, rest goes to subagent
   if (state.mode === "auto") {
     if (result === "allow") { state.stats.approved++; return undefined; }
 
-    ctx.ui.setStatus("pi-permission-suite", ctx.ui.theme.fg("warning", "🤖 审批中..."));
+    ctx.ui.setStatus("pi-permission-suite", ctx.ui.theme.fg("warning", "🤖 Approving..."));
     const decision = await autoApprove(ctx, toolName, inp);
 
     if (decision.approved) {
@@ -175,25 +175,25 @@ async function handleToolCall(
 
     return decision.approved
       ? undefined
-      : { block: true, reason: `Auto 拒绝 (${decision.source}): ${decision.reason}` };
+      : { block: true, reason: `Auto rejected (${decision.source}): ${decision.reason}` };
   }
 
   return undefined;
 }
 
-// ─── before_agent_start 处理 ───────────────────────────────────────
+// ─── before_agent_start handling ───────────────────────────────────────
 
 function handleBeforeAgentStart(state: SuiteState) {
   return {
     message: {
       customType: "pi-permission-suite-context",
-      content: `[审批: ${cfg(state.mode).icon} ${state.mode.toUpperCase()}] ${cfg(state.mode).desc}`,
+      content: `[Approval: ${cfg(state.mode).icon} ${state.mode.toUpperCase()}] ${cfg(state.mode).desc}`,
       display: false,
     },
   };
 }
 
-// ─── session_start 处理 ────────────────────────────────────────────
+// ─── session_start handling ────────────────────────────────────────────
 
 function handleSessionStart(
   ctx: ExtensionContext,
@@ -217,7 +217,7 @@ function handleSessionStart(
   updateStatus(state, ctx);
 }
 
-// ─── 扩展入口 ──────────────────────────────────────────────────────
+// ─── Extension entry ──────────────────────────────────────────────────────
 
 export default function(pi: ExtensionAPI): void {
   const state = createState();

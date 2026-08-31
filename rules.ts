@@ -1,15 +1,15 @@
 /**
- * Pi Permission Suite — 规则引擎 (upgraded)
+ * Pi Permission Suite — Rule Engine (upgraded)
  *
- * 优先级：deny > allow > session always rules > 模式默认行为
+ * Priority: deny > allow > session always rules > mode default behavior
  *
- * 升级内容：
- * - tree-sitter bash 解析（链式命令、$(...)、子 shell）
- * - bash 通配符匹配（last-match-wins）
- * - 跨工具 path surface（read/write/edit/bash 都受 path 规则约束）
- * - symlink 解析防绕过
- * - JSON 配置文件支持
- * - 保留硬编码灾难命令兜底
+ * Upgrades:
+ * - tree-sitter bash parsing (chained commands, $(...), subshells)
+ * - bash wildcard matching (last-match-wins)
+ * - Cross-tool path surface (read/write/edit/bash all subject to path rules)
+ * - symlink parsing to prevent bypass
+ * - JSON configuration file support
+ * - Retain hardcoded dangerous command safety net
  */
 
 import type { ApprovalConfig } from "./config-loader.ts";
@@ -50,12 +50,12 @@ interface EvaluateContext {
 // ─── Hardcoded deny rules (safety net) ─────────────────────────────────
 
 const HARD_DENY: Rule[] = [
-  { name: "rm-root", tools: ["bash"], patterns: [/\brm\s+(-[a-zA-Z]*[rRfF][a-zA-Z]*\s+)*(\/\s*$|~\/?\s*$|\*\s*$|\$HOME)/], message: "🚨 删除根目录/用户目录" },
-  { name: "sudo-destructive", tools: ["bash"], patterns: [/\bsudo\s+(dd|mkfs|fdisk|kill\s+-9\s+1)\b/], message: "🚨 sudo 高危操作" },
-  { name: "fork-bomb", tools: ["bash"], patterns: [/:\(\)\s*\{\s*:\|:\&\s*\}\s*;/, /\bcat\s+\/dev\/(zero|urandom)\s*>/], message: "🚨 Fork bomb / 磁盘填充" },
-  { name: "remote-exec", tools: ["bash"], patterns: [/\b(curl|wget)\b.*\|\s*(bash|sh)\b/], message: "🚨 远程代码执行" },
-  { name: "chmod-root", tools: ["bash"], patterns: [/\b(chmod|chown)\b.*\s+\/\s*$/], message: "🚨 修改根目录权限" },
-  { name: "env-leak", tools: ["bash"], patterns: [/\becho\b.*\$(API_KEY|SECRET|TOKEN)/], message: "🚨 泄露敏感变量" },
+  { name: "rm-root", tools: ["bash"], patterns: [/\brm\s+(-[a-zA-Z]*[rRfF][a-zA-Z]*\s+)*(\/\s*$|~\/?\s*$|\*\s*$|\$HOME)/], message: "🚨 Deleting root directory / user directory" },
+  { name: "sudo-destructive", tools: ["bash"], patterns: [/\bsudo\s+(dd|mkfs|fdisk|kill\s+-9\s+1)\b/], message: "🚨 sudo Destructive operation" },
+  { name: "fork-bomb", tools: ["bash"], patterns: [/:\(\)\s*\{\s*:\|:\&\s*\}\s*;/, /\bcat\s+\/dev\/(zero|urandom)\s*>/], message: "🚨 Fork bomb / Disk filling" },
+  { name: "remote-exec", tools: ["bash"], patterns: [/\b(curl|wget)\b.*\|\s*(bash|sh)\b/], message: "🚨 Remote code execution" },
+  { name: "chmod-root", tools: ["bash"], patterns: [/\b(chmod|chown)\b.*\s+\/\s*$/], message: "🚨 Modifying root directory permissions" },
+  { name: "env-leak", tools: ["bash"], patterns: [/\becho\b.*\$(API_KEY|SECRET|TOKEN)/], message: "🚨 Leaking sensitive variables" },
 ];
 
 // ─── Hardcoded allow rules (read-only baseline) ────────────────────────

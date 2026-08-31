@@ -1,7 +1,7 @@
 /**
  * Minimal Subprocess Runner for pi-permission-suite
  *
- * 自包含的 pi 子进程调用，不依赖外部 subagent 扩展
+ * Self-contained pi subprocess invocation, no external subagent extension required
  */
 
 import { spawn } from "node:child_process";
@@ -105,7 +105,7 @@ function extractOutput(raw: string): string {
         return parts.join("");
       }
     } catch {
-      // JSON.parse 失败 — 继续检查下一行
+      // JSON.parse failed — continue checking next line
     }
   }
   return "";

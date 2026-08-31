@@ -1,8 +1,8 @@
 /**
  * Pi Permission Suite — Auto Approver
  *
- * 自包含的自动审批，不依赖外部 subagent 扩展
- * 低置信度转人工
+ * Self-contained auto-approval, no external subagent extension dependency
+ * Low confidence escalates to human
  */
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
@@ -12,7 +12,7 @@ import type { ApprovalDecision } from "./types.ts";
 const AGENT_NAME = "approver";
 const CONFIDENCE_THRESHOLD = 0.7;
 
-// ─── 格式化工具调用 ────────────────────────────────────────────────
+// ─── Format tool call ────────────────────────────────────────────────
 
 function formatCall(toolName: string, input: Record<string, unknown>): string {
   if (toolName === "bash") return `$ ${input.command}`;
@@ -20,7 +20,7 @@ function formatCall(toolName: string, input: Record<string, unknown>): string {
   return JSON.stringify(input);
 }
 
-// ─── 解析响应 ──────────────────────────────────────────────────────
+// ─── Parse response ──────────────────────────────────────────────────────
 
 function parseResponse(text: string): { approved: boolean; reason: string; confidence: number } {
   try {
@@ -34,29 +34,29 @@ function parseResponse(text: string): { approved: boolean; reason: string; confi
       };
     }
   } catch {
-    // JSON 解析失败是预期行为 — 返回默认拒绝决策
+    // JSON parsing failure is expected behavior — return default reject decision
   }
-  return { approved: false, reason: "无法解析", confidence: 0 };
+  return { approved: false, reason: "Cannot parse", confidence: 0 };
 }
 
-// ─── 升级到人工 ────────────────────────────────────────────────────
+// ─── Escalate to human ────────────────────────────────────────────────────
 
 async function escalate(ctx: ExtensionContext, toolName: string, input: Record<string, unknown>, reason: string): Promise<ApprovalDecision> {
   if (!ctx.hasUI) return { approved: false, source: "human", reason: "No UI" };
   const fmt = formatCall(toolName, input);
-  const c = await ctx.ui.select(`🤖 审批不确定\n\n${fmt}\n${reason}`, ["✅ 批准", "❌ 拒绝"]);
-  return { approved: c?.includes("批准") ?? false, source: "human" };
+  const c = await ctx.ui.select(`🤖 Approval uncertain\n\n${fmt}\n${reason}`, ["✅ Approve", "❌ Reject"]);
+  return { approved: c?.includes("Approve") ?? false, source: "human" };
 }
 
 export async function autoApprove(ctx: ExtensionContext, toolName: string, input: Record<string, unknown>): Promise<ApprovalDecision> {
-  // 加载 approver agent 配置
+  // Load approver agent configuration
   const agent = loadAgent(AGENT_NAME);
   if (!agent) {
-    return escalate(ctx, toolName, input, `Agent "${AGENT_NAME}" 未找到，请创建 ~/.pi/agent/agents/approver.md`);
+    return escalate(ctx, toolName, input, `Agent "${AGENT_NAME}" not found, please create ~/.pi/agent/agents/approver.md`);
   }
 
   const r = await runSubprocess(
-    `评估：\n工具: ${toolName}\n参数: ${formatCall(toolName, input)}`,
+    `Evaluate:\nTool: ${toolName}\nParameters: ${formatCall(toolName, input)}`,
     {
       model: agent.model,
       systemPrompt: agent.systemPrompt,
@@ -64,7 +64,7 @@ export async function autoApprove(ctx: ExtensionContext, toolName: string, input
     },
   );
 
-  if (!r.success) return escalate(ctx, toolName, input, r.error ?? "调用失败");
+  if (!r.success) return escalate(ctx, toolName, input, r.error ?? "Call failed");
 
   const decision = parseResponse(r.output);
   return decision.confidence >= CONFIDENCE_THRESHOLD

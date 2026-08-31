@@ -68,7 +68,7 @@ export function loadConfig(): ApprovalConfig {
       writeFileSync(path, content, "utf-8");
       return JSON.parse(content) as ApprovalConfig;
     } catch {
-      // 内置默认配置损坏，继续到最小默认值
+      // Built-in default config corrupted, falling through to minimal defaults
     }
   }
 
