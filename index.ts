@@ -66,8 +66,12 @@ function registerApprovalModeCommand(pi: ExtensionAPI, state: SuiteState): void 
       const t = args?.trim().toLowerCase() as ApprovalMode | undefined;
       if (t && MODE[t]) apply(state, t, pi);
       else {
-        const ch = await ctx.ui.select("Mode:", ORDER.map((m) => ({ label: `${cfg(m).icon} ${m.toUpperCase()} — ${cfg(m).desc}`, value: m })));
-        if (ch) apply(state, ch, pi); else return;
+        const labels = ORDER.map((m) => `${cfg(m).icon} ${m.toUpperCase()} — ${cfg(m).desc}`);
+        const ch = await ctx.ui.select("Mode:", labels);
+        if (ch) {
+          const idx = labels.indexOf(ch);
+          if (idx !== -1) apply(state, ORDER[idx], pi);
+        } else return;
       }
       ctx.ui.notify(`${cfg(state.mode).icon} ${state.mode.toUpperCase()}`, "info");
       updateStatus(state, ctx);
