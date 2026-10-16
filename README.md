@@ -164,3 +164,21 @@ pi-permission-suite/
 ## License
 
 MIT — based on [`@gotgenes/pi-permission-system`](https://www.npmjs.com/package/@gotgenes/pi-permission-system) (MIT).
+
+## HTTP Decision API provider
+
+`http-decision-provider.ts` POSTs the tool-call context (`DecisionRequest`) as JSON to any endpoint and expects `{ "verdict": "allow|deny|ask", "confidence": 0..1, "reason"?: string }`. Any error, timeout, non-2xx, redirect, oversized or schema-invalid response falls back to `ask`.
+
+```json
+{
+  "decision": {
+    "provider": "http",
+    "http": {
+      "url": "https://decision.example.com/v1/decide",
+      "authHeader": "Authorization",
+      "authValue": "env:DECISION_API_TOKEN",
+      "timeoutMs": 5000
+    }
+  }
+}
+```
