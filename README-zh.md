@@ -132,6 +132,29 @@ session always rules（交互式临时规则）
 - 都不命中 → 交给 Mode 层决策
 - `external_directory`: `"mode"` = 未命中规则时走 Mode 层；`"deny"` = 硬阻断；`"allow"` = 放行
 
+### Decision provider 配置
+
+Auto 模式会把规则未决的调用交给 Decision provider。配置在 `decision` 下（均可选，无效值回退默认值）：
+
+| 字段 | 默认值 | 说明 |
+|---|---|---|
+| `provider` | `"subagent"` | `subagent`、`jev` 或 `http` |
+| `endpoint` | — | `http` provider 的 URL（`decision.http.url` 优先） |
+| `apiKeyEnv` | — | 存放 API key 的环境变量名，以 `Authorization: Bearer <key>` 发送。key 本身不写入配置。 |
+| `confidenceThreshold` | `0.7` | 低于该值结果为 `ask` |
+| `timeoutMs` | `10000` | 单次调用超时，超时结果为 `ask` |
+| `audit.enabled` | `true` | 是否写审计日志 |
+| `audit.path` | `~/.pi/agent/extensions/pi-permission-suite/decision-audit.jsonl` | 审计日志文件 |
+
+```json
+{ "decision": { "provider": "http", "endpoint": "https://decision.example.com/v1/decide",
+                "apiKeyEnv": "DECISION_API_KEY", "confidenceThreshold": 0.8, "timeoutMs": 5000 } }
+```
+
+### 审计日志
+
+每次 provider 决策向审计文件追加一行 JSON：`time`、`tool`、`mode`、`call`（单行摘要，最长 200 字符）、`provider`、`verdict`、`confidence`、`reason`、`fallback`、`outcome`（`approved`/`denied`）、`decidedBy`（`provider`/`human`/`rules`）。不会写入 API key 或完整的工具输入。写入失败会被忽略，不影响工具调用。
+
 ## 项目结构
 
 ```

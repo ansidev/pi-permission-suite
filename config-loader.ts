@@ -24,6 +24,8 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
 export interface ApprovalConfig {
+  /** Decision provider settings; validated by parseDecisionConfig */
+  decision?: unknown;
   bash: {
     deny: Record<string, string>;
     allow: Record<string, boolean>;

@@ -14,6 +14,7 @@
 
 import type { ApprovalConfig } from "./config-loader.ts";
 import { loadConfig } from "./config-loader.ts";
+import { parseDecisionConfig, type DecisionConfig } from "./decision-provider.ts";
 import { findMatch } from "./wildcard-matcher.ts";
 import { parseBashCommand } from "./bash-parser.ts";
 import {
@@ -90,6 +91,22 @@ export class RuleEngine {
 
   constructor() {
     this.config = loadConfig();
+  }
+
+  /** Decision provider settings (validated; defaults on invalid/missing) */
+  getDecisionConfig(): DecisionConfig {
+    return parseDecisionConfig(this.config.decision);
+  }
+
+  /** Raw `decision` config block (for provider/audit setup) */
+  getRawDecisionConfig(): unknown {
+    return this.config.decision;
+  }
+
+  /** Normalized path touched by a tool call, if any (for decision context) */
+  getCallPaths(toolName: string, input: Record<string, unknown>): string[] {
+    const p = getToolPath(toolName, input);
+    return p ? [normalizePath(expandHome(p), this.cwd)] : [];
   }
 
   /** Update the working directory (called on session start) */

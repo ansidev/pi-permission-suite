@@ -133,6 +133,37 @@ User config lives at `~/.pi/extensions/pi-permission-suite/config.json`. Created
 - Neither matches → delegate to mode layer
 - `external_directory`: `"mode"` = fall through to mode; `"deny"` = hard block; `"allow"` = approve
 
+### Jev decision provider
+
+`jev-provider.ts` judges a tool call with [TypeSafe System One (Jev)](https://docs.typesafe.ai) and returns allow / deny / ask with the model's probability as confidence. Select it with `"decision": { "provider": "jev" }`.
+
+- `TYPESAFE_API_KEY` (required, env only). Without it the result is `ask`.
+- `TYPESAFE_BASE_URL`, `TYPESAFE_MODEL` (optional; default `https://api.typesafe.ai`, `jev-latest`).
+- Any failure, timeout or probability below `confidenceThreshold` resolves to `ask`, never `allow`.
+
+### Decision provider settings
+
+Auto mode asks a Decision provider about every call that no rule settled. Configure it under `decision` (all fields optional; invalid values fall back to defaults):
+
+| Field | Default | Meaning |
+|---|---|---|
+| `provider` | `"subagent"` | `subagent`, `jev` or `http` |
+| `endpoint` | — | URL for the `http` provider (`decision.http.url` takes precedence) |
+| `apiKeyEnv` | — | Name of the env var holding the API key, sent as `Authorization: Bearer <key>`. The key itself never goes in config. |
+| `confidenceThreshold` | `0.7` | Below this the result is `ask` |
+| `timeoutMs` | `10000` | Per-call timeout; on expiry the result is `ask` |
+| `audit.enabled` | `true` | Write the audit log |
+| `audit.path` | `~/.pi/agent/extensions/pi-permission-suite/decision-audit.jsonl` | Audit log file |
+
+```json
+{ "decision": { "provider": "http", "endpoint": "https://decision.example.com/v1/decide",
+                "apiKeyEnv": "DECISION_API_KEY", "confidenceThreshold": 0.8, "timeoutMs": 5000 } }
+```
+
+### Audit log
+
+Each provider decision appends one JSON line to the audit file: `time`, `tool`, `mode`, `call` (one-line summary, truncated to 200 chars), `provider`, `verdict`, `confidence`, `reason`, `fallback`, `outcome` (`approved`/`denied`) and `decidedBy` (`provider`/`human`/`rules`). API keys and full tool input are never written. A write failure is ignored and does not affect the tool call.
+
 ## Project Structure
 
 ```
@@ -141,6 +172,10 @@ pi-permission-suite/
 ├── types.ts              # Shared types
 ├── rules.ts              # Rule engine
 ├── approver.ts           # Auto-approver
+├── decision-provider.ts  # Decision API provider interface
+├── jev-provider.ts       # Jev (System One) decision provider
+├── http-decision-provider.ts # Generic HTTP decision provider
+├── decision-audit.ts     # Decision audit log (JSONL)
 ├── subprocess-runner.ts  # Subprocess runner
 ├── bash-parser.ts        # tree-sitter bash parser
 ├── wildcard-matcher.ts   # Glob matching
@@ -154,3 +189,21 @@ pi-permission-suite/
 ## License
 
 MIT — based on [`@gotgenes/pi-permission-system`](https://www.npmjs.com/package/@gotgenes/pi-permission-system) (MIT).
+
+## HTTP Decision API provider
+
+`http-decision-provider.ts` POSTs the tool-call context (`DecisionRequest`) as JSON to any endpoint and expects `{ "verdict": "allow|deny|ask", "confidence": 0..1, "reason"?: string }`. Any error, timeout, non-2xx, redirect, oversized or schema-invalid response falls back to `ask`.
+
+```json
+{
+  "decision": {
+    "provider": "http",
+    "http": {
+      "url": "https://decision.example.com/v1/decide",
+      "authHeader": "Authorization",
+      "authValue": "env:DECISION_API_TOKEN",
+      "timeoutMs": 5000
+    }
+  }
+}
+```

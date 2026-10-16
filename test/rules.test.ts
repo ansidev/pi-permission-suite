@@ -1,5 +1,5 @@
 /**
- * Pi Permission Suite Rules Engine — 测试
+ * Pi Permission Suite Rules Engine — Tests
  */
 
 import { test, expect } from "bun:test";

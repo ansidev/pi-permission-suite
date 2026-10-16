@@ -53,9 +53,10 @@ export async function runSubprocess(
     model?: string;
     systemPrompt?: string;
     timeout?: number;
+    signal?: AbortSignal;
   } = {},
 ): Promise<SubprocessResult> {
-  const { model, systemPrompt, timeout = 15000 } = options;
+  const { model, systemPrompt, timeout = 15000, signal } = options;
 
   const args = ["--mode", "json", "-p", "--no-session"];
   if (model) args.push("--model", model);
@@ -69,13 +70,21 @@ export async function runSubprocess(
     proc.stdout.on("data", (d: Buffer) => { stdout += d.toString(); });
     proc.stderr.on("data", (d: Buffer) => { stderr += d.toString(); });
 
+    const onAbort = () => {
+      proc.kill("SIGTERM");
+      resolve({ success: false, output: "", error: "Aborted" });
+    };
     const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
       proc.kill("SIGTERM");
       resolve({ success: false, output: "", error: `Timeout (${timeout}ms)` });
     }, timeout);
+    if (signal?.aborted) onAbort();
+    else signal?.addEventListener("abort", onAbort, { once: true });
 
     proc.on("close", (code: number | null) => {
       clearTimeout(timer);
+      signal?.removeEventListener("abort", onAbort);
       if (code === 0) {
         resolve({ success: true, output: extractOutput(stdout) });
       } else {
@@ -85,6 +94,7 @@ export async function runSubprocess(
 
     proc.on("error", (err: Error) => {
       clearTimeout(timer);
+      signal?.removeEventListener("abort", onAbort);
       resolve({ success: false, output: "", error: err.message });
     });
   });
