@@ -4,6 +4,7 @@ import {
   parseDecisionBody,
   createHttpDecisionProvider,
   createHttpDecisionProviderFromConfig,
+  createHttpDecisionProviderFromDecision,
   type HttpProviderConfig,
 } from "../http-decision-provider.ts";
 import { resolveDecision, DEFAULT_DECISION_CONFIG, type DecisionRequest } from "../decision-provider.ts";
@@ -125,4 +126,30 @@ test("real server round trip", async () => {
   } finally {
     server.stop(true);
   }
+});
+
+test("createHttpDecisionProviderFromDecision: endpoint + apiKeyEnv wiring", async () => {
+  let seen: { url?: string; auth?: string } = {};
+  const deps = {
+    env: { MY_KEY: "k123" } as NodeJS.ProcessEnv,
+    fetch: (async (url: string, init: RequestInit) => {
+      seen = { url, auth: (init.headers as Record<string, string>).Authorization };
+      return json({ verdict: "allow", confidence: 0.9 });
+    }) as unknown as typeof fetch,
+  };
+  const p = createHttpDecisionProviderFromDecision({ endpoint: "https://e.test/d", apiKeyEnv: "MY_KEY", timeoutMs: 500 }, deps)!;
+  expect((await p.decide(req, sig())).verdict).toBe("allow");
+  expect(seen).toEqual({ url: "https://e.test/d", auth: "Bearer k123" });
+});
+
+test("createHttpDecisionProviderFromDecision: http.url wins; missing url -> undefined; unset key throws", async () => {
+  expect(createHttpDecisionProviderFromDecision({}, {})).toBeUndefined();
+  expect(createHttpDecisionProviderFromDecision(undefined)).toBeUndefined();
+  let url = "";
+  const fetch = (async (u: string) => ((url = u), json({ verdict: "ask", confidence: 1 }))) as unknown as typeof globalThis.fetch;
+  const p = createHttpDecisionProviderFromDecision({ endpoint: "https://a.test", http: { url: "https://b.test" } }, { fetch, env: {} })!;
+  await p.decide(req, sig());
+  expect(url).toBe("https://b.test");
+  const q = createHttpDecisionProviderFromDecision({ endpoint: "https://a.test", apiKeyEnv: "NOPE" }, { fetch, env: {} })!;
+  await expect(q.decide(req, sig())).rejects.toThrow("NOPE");
 });

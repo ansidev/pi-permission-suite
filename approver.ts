@@ -16,6 +16,7 @@ import {
   type DecisionProvider,
   type DecisionRequest,
   type DecisionResponse,
+  type ResolvedDecision,
 } from "./decision-provider.ts";
 
 const AGENT_NAME = "approver";
@@ -85,12 +86,22 @@ export async function autoApprove(
   request: DecisionRequest,
   config: DecisionConfig,
   signal?: AbortSignal,
+  /** Called once per resolved decision with the final outcome (for audit logging). Must not throw. */
+  onDecision?: (res: ResolvedDecision, outcome: ApprovalDecision) => void,
 ): Promise<ApprovalDecision> {
   const { toolName, input } = request;
   const provider = getDecisionProvider(config.provider);
   const res = await resolveDecision(provider, request, config, signal);
 
-  if (res.verdict === "allow") return { approved: true, source: "subagent", reason: res.reason };
-  if (res.verdict === "deny") return { approved: false, source: "subagent", reason: res.reason };
-  return escalate(ctx, toolName, input, res.reason);
+  let outcome: ApprovalDecision;
+  if (res.verdict === "allow") outcome = { approved: true, source: "subagent", reason: res.reason };
+  else if (res.verdict === "deny") outcome = { approved: false, source: "subagent", reason: res.reason };
+  else outcome = await escalate(ctx, toolName, input, res.reason);
+
+  try {
+    onDecision?.(res, outcome);
+  } catch {
+    // audit must never affect the decision
+  }
+  return outcome;
 }

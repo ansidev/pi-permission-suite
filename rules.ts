@@ -98,6 +98,11 @@ export class RuleEngine {
     return parseDecisionConfig(this.config.decision);
   }
 
+  /** Raw `decision` config block (for provider/audit setup) */
+  getRawDecisionConfig(): unknown {
+    return this.config.decision;
+  }
+
   /** Normalized path touched by a tool call, if any (for decision context) */
   getCallPaths(toolName: string, input: Record<string, unknown>): string[] {
     const p = getToolPath(toolName, input);

@@ -1,4 +1,12 @@
 {
+  "decision": {
+    "provider": "subagent",
+    "endpoint": "",
+    "apiKeyEnv": "",
+    "confidenceThreshold": 0.7,
+    "timeoutMs": 10000,
+    "audit": { "enabled": true }
+  },
   "bash": {
     "deny": {
       "rm -rf /": "🚨 Prohibit deleting root directory",

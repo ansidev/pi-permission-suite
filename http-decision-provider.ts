@@ -13,6 +13,7 @@
  *       "url": "https://decision.example.com/v1/decide",  // required, http(s)
  *       "authHeader": "Authorization",                    // header name (default)
  *       "authValue": "env:DECISION_API_TOKEN",            // literal or "env:NAME"
+ *       "apiKeyEnv": "DECISION_API_KEY",                  // alt: env var -> "Bearer <key>"
  *       "timeoutMs": 5000,                                // provider-level timeout
  *       "maxResponseBytes": 65536
  *     }
@@ -29,6 +30,8 @@ export interface HttpProviderConfig {
   url: string;
   authHeader: string;
   authValue?: string;
+  /** Env var holding an API key, sent as `Authorization: Bearer <key>` when authValue is unset */
+  apiKeyEnv?: string;
   timeoutMs: number;
   maxResponseBytes: number;
 }
@@ -53,6 +56,7 @@ export function parseHttpProviderConfig(raw: unknown): HttpProviderConfig | unde
     url: r.url.trim(),
     authHeader: typeof r.authHeader === "string" && r.authHeader.trim() ? r.authHeader.trim() : DEFAULTS.authHeader,
     authValue: typeof r.authValue === "string" && r.authValue ? r.authValue : undefined,
+    apiKeyEnv: typeof r.apiKeyEnv === "string" && r.apiKeyEnv.trim() ? r.apiKeyEnv.trim() : undefined,
     timeoutMs: pos(r.timeoutMs, DEFAULTS.timeoutMs),
     maxResponseBytes: pos(r.maxResponseBytes, DEFAULTS.maxResponseBytes),
   };
@@ -112,6 +116,11 @@ export function createHttpDecisionProvider(config: HttpProviderConfig, deps: Htt
     async decide(request: DecisionRequest, signal: AbortSignal): Promise<DecisionResponse> {
       const headers: Record<string, string> = { "content-type": "application/json", accept: "application/json" };
       if (config.authValue) headers[config.authHeader] = resolveAuthValue(config.authValue, env);
+      else if (config.apiKeyEnv) {
+        const key = env[config.apiKeyEnv];
+        if (!key) throw new Error(`API key env var ${config.apiKeyEnv} is not set`);
+        headers.Authorization = `Bearer ${key}`;
+      }
 
       const timeoutSignal = AbortSignal.timeout(config.timeoutMs);
       const res = await doFetch(config.url, {
@@ -139,4 +148,20 @@ export function createHttpDecisionProvider(config: HttpProviderConfig, deps: Htt
 export function createHttpDecisionProviderFromConfig(raw: unknown, deps?: HttpProviderDeps): DecisionProvider | undefined {
   const cfg = parseHttpProviderConfig(raw);
   return cfg ? createHttpDecisionProvider(cfg, deps) : undefined;
+}
+
+/**
+ * Build a provider from the whole `decision` config block: `decision.http`
+ * wins, `decision.endpoint` / `decision.apiKeyEnv` fill in what is missing.
+ */
+export function createHttpDecisionProviderFromDecision(decision: unknown, deps?: HttpProviderDeps): DecisionProvider | undefined {
+  const d = (typeof decision === "object" && decision !== null ? decision : {}) as Record<string, unknown>;
+  const http = (typeof d.http === "object" && d.http !== null ? d.http : {}) as Record<string, unknown>;
+  const merged = {
+    ...http,
+    url: http.url ?? d.endpoint,
+    apiKeyEnv: http.apiKeyEnv ?? d.apiKeyEnv,
+    timeoutMs: http.timeoutMs ?? d.timeoutMs,
+  };
+  return createHttpDecisionProviderFromConfig(merged, deps);
 }

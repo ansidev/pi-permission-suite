@@ -86,3 +86,9 @@ test("missing provider -> ask; rule deny short-circuits", async () => {
   expect(r).toMatchObject({ verdict: "deny", source: "rules" });
   expect(called).toBe(false);
 });
+
+test("parseDecisionConfig: endpoint and apiKeyEnv", () => {
+  expect(parseDecisionConfig({ endpoint: " https://x.test ", apiKeyEnv: "K" })).toMatchObject({ endpoint: "https://x.test", apiKeyEnv: "K" });
+  expect(parseDecisionConfig({ endpoint: 5, apiKeyEnv: "" }).endpoint).toBeUndefined();
+  expect(parseDecisionConfig({ endpoint: 5, apiKeyEnv: "" }).apiKeyEnv).toBeUndefined();
+});

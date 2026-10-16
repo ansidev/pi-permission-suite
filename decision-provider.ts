@@ -13,6 +13,9 @@
  *     "provider": "subagent",       // registered provider name
  *     "timeoutMs": 10000,           // per-call timeout
  *     "confidenceThreshold": 0.7,   // below this -> fallback
+ *     "endpoint": "https://…",      // http provider URL (optional)
+ *     "apiKeyEnv": "DECISION_API_KEY", // env var holding the API key (optional)
+ *     "audit": { "enabled": true, "path": "…" }  // see decision-audit.ts
  *     "onFailure": "ask"            // only "ask" is supported
  *   }
  * }
@@ -55,6 +58,10 @@ export interface DecisionConfig {
   provider: string;
   timeoutMs: number;
   confidenceThreshold: number;
+  /** HTTP provider URL; used when `decision.http.url` is not set */
+  endpoint?: string;
+  /** Name of the env var holding the API key (the key itself is never in config) */
+  apiKeyEnv?: string;
   onFailure: "ask";
 }
 
@@ -81,10 +88,13 @@ export function parseDecisionConfig(raw: unknown): DecisionConfig {
   const r = raw as Record<string, unknown>;
   const num = (v: unknown, ok: (n: number) => boolean, def: number) =>
     typeof v === "number" && Number.isFinite(v) && ok(v) ? v : def;
+  const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : undefined);
   return {
     provider: typeof r.provider === "string" && r.provider.trim() ? r.provider.trim() : d.provider,
     timeoutMs: num(r.timeoutMs, (n) => n > 0, d.timeoutMs),
     confidenceThreshold: num(r.confidenceThreshold, (n) => n >= 0 && n <= 1, d.confidenceThreshold),
+    endpoint: str(r.endpoint),
+    apiKeyEnv: str(r.apiKeyEnv),
     onFailure: "ask",
   };
 }

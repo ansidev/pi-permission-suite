@@ -14,6 +14,8 @@ import { autoApprove, subagentProvider } from "./approver.ts";
 import { registerDecisionProvider, type DecisionRequest } from "./decision-provider.ts";
 import { Type } from "typebox";
 import { registerJevProvider } from "./jev-provider.ts";
+import { createHttpDecisionProviderFromDecision } from "./http-decision-provider.ts";
+import { buildAuditEntry, parseAuditConfig, writeAuditEntry } from "./decision-audit.ts";
 
 // ─── Mode configuration ──────────────────────────────────────────────
 
@@ -177,7 +179,9 @@ async function handleToolCall(
       cwd: ctx.cwd,
       ruleResult: result,
     };
-    const decision = await autoApprove(ctx, request, state.rules.getDecisionConfig(), ctx.signal);
+    const audit = parseAuditConfig((state.rules.getRawDecisionConfig() as { audit?: unknown } | undefined)?.audit);
+    const decision = await autoApprove(ctx, request, state.rules.getDecisionConfig(), ctx.signal, (res, out) =>
+      writeAuditEntry(buildAuditEntry(request, res, out.approved, out.source === "human"), audit));
 
     if (decision.approved) {
       state.stats.approved++;
@@ -237,6 +241,8 @@ export default function(pi: ExtensionAPI): void {
   const state = createState();
   registerJevProvider();
   registerDecisionProvider(subagentProvider);
+  const http = createHttpDecisionProviderFromDecision(state.rules.getRawDecisionConfig());
+  if (http) registerDecisionProvider(http);
 
   registerApprovalModeCommand(pi, state);
   registerApprovalModeTool(pi, state);

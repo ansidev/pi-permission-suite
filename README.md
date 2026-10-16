@@ -141,6 +141,29 @@ User config lives at `~/.pi/extensions/pi-permission-suite/config.json`. Created
 - `TYPESAFE_BASE_URL`, `TYPESAFE_MODEL` (optional; default `https://api.typesafe.ai`, `jev-latest`).
 - Any failure, timeout or probability below `confidenceThreshold` resolves to `ask`, never `allow`.
 
+### Decision provider settings
+
+Auto mode asks a Decision provider about every call that no rule settled. Configure it under `decision` (all fields optional; invalid values fall back to defaults):
+
+| Field | Default | Meaning |
+|---|---|---|
+| `provider` | `"subagent"` | `subagent`, `jev` or `http` |
+| `endpoint` | — | URL for the `http` provider (`decision.http.url` takes precedence) |
+| `apiKeyEnv` | — | Name of the env var holding the API key, sent as `Authorization: Bearer <key>`. The key itself never goes in config. |
+| `confidenceThreshold` | `0.7` | Below this the result is `ask` |
+| `timeoutMs` | `10000` | Per-call timeout; on expiry the result is `ask` |
+| `audit.enabled` | `true` | Write the audit log |
+| `audit.path` | `~/.pi/agent/extensions/pi-permission-suite/decision-audit.jsonl` | Audit log file |
+
+```json
+{ "decision": { "provider": "http", "endpoint": "https://decision.example.com/v1/decide",
+                "apiKeyEnv": "DECISION_API_KEY", "confidenceThreshold": 0.8, "timeoutMs": 5000 } }
+```
+
+### Audit log
+
+Each provider decision appends one JSON line to the audit file: `time`, `tool`, `mode`, `call` (one-line summary, truncated to 200 chars), `provider`, `verdict`, `confidence`, `reason`, `fallback`, `outcome` (`approved`/`denied`) and `decidedBy` (`provider`/`human`/`rules`). API keys and full tool input are never written. A write failure is ignored and does not affect the tool call.
+
 ## Project Structure
 
 ```
@@ -151,6 +174,8 @@ pi-permission-suite/
 ├── approver.ts           # Auto-approver
 ├── decision-provider.ts  # Decision API provider interface
 ├── jev-provider.ts       # Jev (System One) decision provider
+├── http-decision-provider.ts # Generic HTTP decision provider
+├── decision-audit.ts     # Decision audit log (JSONL)
 ├── subprocess-runner.ts  # Subprocess runner
 ├── bash-parser.ts        # tree-sitter bash parser
 ├── wildcard-matcher.ts   # Glob matching
