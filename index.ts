@@ -10,7 +10,8 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { ApprovalMode, ApprovalState } from "./types.ts";
 import { RuleEngine } from "./rules.ts";
-import { autoApprove } from "./approver.ts";
+import { autoApprove, subagentProvider } from "./approver.ts";
+import { registerDecisionProvider, type DecisionRequest } from "./decision-provider.ts";
 import { Type } from "typebox";
 import { registerJevProvider } from "./jev-provider.ts";
 
@@ -168,7 +169,15 @@ async function handleToolCall(
     if (result === "allow") { state.stats.approved++; return undefined; }
 
     ctx.ui.setStatus("pi-permission-suite", ctx.ui.theme.fg("warning", "🤖 Approving..."));
-    const decision = await autoApprove(ctx, toolName, inp);
+    const request: DecisionRequest = {
+      toolName,
+      input: inp,
+      mode: state.mode,
+      paths: state.rules.getCallPaths(toolName, inp),
+      cwd: ctx.cwd,
+      ruleResult: result,
+    };
+    const decision = await autoApprove(ctx, request, state.rules.getDecisionConfig(), ctx.signal);
 
     if (decision.approved) {
       state.stats.approved++;
@@ -227,6 +236,7 @@ function handleSessionStart(
 export default function(pi: ExtensionAPI): void {
   const state = createState();
   registerJevProvider();
+  registerDecisionProvider(subagentProvider);
 
   registerApprovalModeCommand(pi, state);
   registerApprovalModeTool(pi, state);
