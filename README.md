@@ -133,6 +133,14 @@ User config lives at `~/.pi/extensions/pi-permission-suite/config.json`. Created
 - Neither matches → delegate to mode layer
 - `external_directory`: `"mode"` = fall through to mode; `"deny"` = hard block; `"allow"` = approve
 
+### Jev decision provider
+
+`jev-provider.ts` judges a tool call with [TypeSafe System One (Jev)](https://docs.typesafe.ai) and returns allow / deny / ask with the model's probability as confidence. Select it with `"decision": { "provider": "jev" }`.
+
+- `TYPESAFE_API_KEY` (required, env only). Without it the result is `ask`.
+- `TYPESAFE_BASE_URL`, `TYPESAFE_MODEL` (optional; default `https://api.typesafe.ai`, `jev-latest`).
+- Any failure, timeout or probability below `confidenceThreshold` resolves to `ask`, never `allow`.
+
 ## Project Structure
 
 ```
@@ -141,6 +149,8 @@ pi-permission-suite/
 ├── types.ts              # Shared types
 ├── rules.ts              # Rule engine
 ├── approver.ts           # Auto-approver
+├── decision-provider.ts  # Decision API provider interface
+├── jev-provider.ts       # Jev (System One) decision provider
 ├── subprocess-runner.ts  # Subprocess runner
 ├── bash-parser.ts        # tree-sitter bash parser
 ├── wildcard-matcher.ts   # Glob matching

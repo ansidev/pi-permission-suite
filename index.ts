@@ -12,6 +12,7 @@ import type { ApprovalMode, ApprovalState } from "./types.ts";
 import { RuleEngine } from "./rules.ts";
 import { autoApprove } from "./approver.ts";
 import { Type } from "typebox";
+import { registerJevProvider } from "./jev-provider.ts";
 
 // ─── Mode configuration ──────────────────────────────────────────────
 
@@ -225,6 +226,7 @@ function handleSessionStart(
 
 export default function(pi: ExtensionAPI): void {
   const state = createState();
+  registerJevProvider();
 
   registerApprovalModeCommand(pi, state);
   registerApprovalModeTool(pi, state);
