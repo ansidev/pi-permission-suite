@@ -142,12 +142,19 @@ export async function resolveDecision(
   request: DecisionRequest,
   config: DecisionConfig = DEFAULT_DECISION_CONFIG,
   signal?: AbortSignal,
+  /** Debug sink: called when the provider is invoked and when its outcome arrives. Must not throw. */
+  onDebug?: (message: string) => void,
 ): Promise<ResolvedDecision> {
   if (request.ruleResult === "deny") {
     return { verdict: "deny", confidence: 1, reason: "Denied by rules", fallback: false, source: "rules" };
   }
   if (!provider) return ask(`Decision provider "${config.provider}" not found`, config.provider);
   if (signal?.aborted) return ask("Aborted", provider.name);
+
+  const debug = (m: string) => {
+    try { onDebug?.(m); } catch { /* debug output must never affect the decision */ }
+  };
+  debug(`[pi-permission-suite] Decision API call: provider=${provider.name} tool=${request.toolName}`);
 
   const ctrl = new AbortController();
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -185,7 +192,12 @@ export async function resolveDecision(
   })();
 
   try {
-    return await Promise.race([call, guard]);
+    const out = await Promise.race([call, guard]);
+    debug(
+      `[pi-permission-suite] Decision API response: provider=${provider.name} verdict=${out.verdict} ` +
+      `confidence=${out.confidence} fallback=${out.fallback} reason=${out.reason}`,
+    );
+    return out;
   } finally {
     if (timer) clearTimeout(timer);
     if (onAbort) signal?.removeEventListener("abort", onAbort);

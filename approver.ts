@@ -88,10 +88,12 @@ export async function autoApprove(
   signal?: AbortSignal,
   /** Called once per resolved decision with the final outcome (for audit logging). Must not throw. */
   onDecision?: (res: ResolvedDecision, outcome: ApprovalDecision) => void,
+  /** Debug sink for Decision API call/response messages (omit to stay silent). */
+  onDebug?: (message: string) => void,
 ): Promise<ApprovalDecision> {
   const { toolName, input } = request;
   const provider = getDecisionProvider(config.provider);
-  const res = await resolveDecision(provider, request, config, signal);
+  const res = await resolveDecision(provider, request, config, signal, onDebug);
 
   let outcome: ApprovalDecision;
   if (res.verdict === "allow") outcome = { approved: true, source: "subagent", reason: res.reason };

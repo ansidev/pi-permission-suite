@@ -92,3 +92,16 @@ test("parseDecisionConfig: endpoint and apiKeyEnv", () => {
   expect(parseDecisionConfig({ endpoint: 5, apiKeyEnv: "" }).endpoint).toBeUndefined();
   expect(parseDecisionConfig({ endpoint: 5, apiKeyEnv: "" }).apiKeyEnv).toBeUndefined();
 });
+
+test("onDebug reports call and response; silent when omitted", async () => {
+  const msgs: string[] = [];
+  const p = { name: "dbg", decide: async () => ({ verdict: "allow" as const, confidence: 0.9, reason: "ok" }) };
+  const req = { toolName: "bash", input: {}, mode: "auto" as const, ruleResult: undefined };
+  await resolveDecision(p, req, undefined, undefined, (m) => msgs.push(m));
+  expect(msgs).toHaveLength(2);
+  expect(msgs[0]).toContain("call");
+  expect(msgs[1]).toContain("verdict=allow");
+  await resolveDecision(p, req); // no sink: must not throw
+  await resolveDecision(p, { ...req, ruleResult: "deny" }, undefined, undefined, (m) => msgs.push(m));
+  expect(msgs).toHaveLength(2); // rules deny never calls the API
+});

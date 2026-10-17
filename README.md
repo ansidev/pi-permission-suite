@@ -36,6 +36,7 @@ Once installed and pi restarted, you get:
 
 ```bash
 /approval-mode [ask|auto|act|plan]  # Switch mode
+/pi-permission-suite debug on|off    # Print Decision API call/response messages (default off)
 
 ```
 

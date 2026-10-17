@@ -37,10 +37,12 @@ interface SuiteState {
   mode: ApprovalMode;
   stats: { approved: number; denied: number; escalated: number };
   rules: RuleEngine;
+  /** Print Decision API call/response messages (off by default, not persisted) */
+  debug: boolean;
 }
 
 function createState(): SuiteState {
-  return { mode: "act", stats: { approved: 0, denied: 0, escalated: 0 }, rules: new RuleEngine() };
+  return { mode: "act", stats: { approved: 0, denied: 0, escalated: 0 }, rules: new RuleEngine(), debug: false };
 }
 
 function cfg(m: ApprovalMode) { return MODE[m]; }
@@ -79,6 +81,27 @@ function registerApprovalModeCommand(pi: ExtensionAPI, state: SuiteState): void 
       }
       ctx.ui.notify(`${cfg(state.mode).icon} ${state.mode.toUpperCase()}`, "info");
       updateStatus(state, ctx);
+    },
+  });
+}
+
+function registerSuiteCommand(pi: ExtensionAPI, state: SuiteState): void {
+  pi.registerCommand("pi-permission-suite", {
+    description: "Pi Permission Suite: debug on|off",
+    getArgumentCompletions: (p) => {
+      const parts = p.trimStart().split(/\s+/);
+      if (parts.length <= 1) return "debug".startsWith(parts[0] ?? "") ? [{ value: "debug", label: "debug" }] : [];
+      if (parts[0] !== "debug" || parts.length > 2) return [];
+      return ["on", "off"].filter((v) => v.startsWith(parts[1])).map((v) => ({ value: `debug ${v}`, label: v }));
+    },
+    handler: async (args, ctx) => {
+      const [sub, val] = (args ?? "").trim().toLowerCase().split(/\s+/);
+      if (sub === "debug" && (val === "on" || val === "off")) {
+        state.debug = val === "on";
+        ctx.ui.notify(`pi-permission-suite debug ${val}`, "info");
+      } else {
+        ctx.ui.notify(`Usage: /pi-permission-suite debug on|off (currently ${state.debug ? "on" : "off"})`, "warning");
+      }
     },
   });
 }
@@ -181,7 +204,8 @@ async function handleToolCall(
     };
     const audit = parseAuditConfig((state.rules.getRawDecisionConfig() as { audit?: unknown } | undefined)?.audit);
     const decision = await autoApprove(ctx, request, state.rules.getDecisionConfig(), ctx.signal, (res, out) =>
-      writeAuditEntry(buildAuditEntry(request, res, out.approved, out.source === "human"), audit));
+      writeAuditEntry(buildAuditEntry(request, res, out.approved, out.source === "human"), audit),
+      state.debug ? (m) => ctx.ui.notify(m, "info") : undefined);
 
     if (decision.approved) {
       state.stats.approved++;
@@ -245,6 +269,7 @@ export default function(pi: ExtensionAPI): void {
   if (http) registerDecisionProvider(http);
 
   registerApprovalModeCommand(pi, state);
+  registerSuiteCommand(pi, state);
   registerApprovalModeTool(pi, state);
   registerApprovalShortcut(pi, state);
 
