@@ -91,7 +91,7 @@ session always rules（交互式临时规则）
 
 默认规则在 `config.default.json` 中。
 
-用户自定义配置在 `~/.pi/extensions/pi-permission-suite/config.json`。首次加载时自动从默认文件创建。
+用户自定义配置在 `~/.pi/agent/extensions/pi-permission-suite/config.json`。首次加载时自动从默认文件创建。
 
 ```jsonc
 {

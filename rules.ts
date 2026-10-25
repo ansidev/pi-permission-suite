@@ -156,6 +156,9 @@ export class RuleEngine {
     const command = String(input.command ?? "");
     if (!command.trim()) return this.evaluate(toolName, input);
 
+    // 0. Tool-name deny
+    if (this.matchToolDeny(toolName)) return "deny";
+
     // 1. Deny — try tree-sitter first
     const bashDeny = await this.checkBashDenyAsync(command);
     if (bashDeny) return "deny";
@@ -176,6 +179,10 @@ export class RuleEngine {
    */
   getDenyMessage(toolName: string, input: Record<string, unknown>): string | undefined {
     const ctx: EvaluateContext = { toolName, input, cwd: this.cwd };
+
+    // Check config tool-name deny
+    const toolDeny = this.matchToolDeny(toolName);
+    if (toolDeny) return toolDeny.value;
 
     // Check config bash deny
     if (toolName === "bash") {
@@ -208,10 +215,12 @@ export class RuleEngine {
     const configDenyNames = [
       ...Object.keys(this.config.bash.deny),
       ...Object.keys(this.config.path.deny),
+      ...Object.keys(this.config.tools?.deny ?? {}),
     ];
     const configAllowNames = [
       ...Object.keys(this.config.bash.allow),
       ...Object.keys(this.config.path.allow),
+      ...Object.keys(this.config.tools?.allow ?? {}),
     ];
     return {
       deny: [...HARD_DENY.map((r) => r.name), ...configDenyNames],
@@ -221,7 +230,20 @@ export class RuleEngine {
 
   // ─── Deny checking ─────────────────────────────────────────────────
 
+  /** Config tool-name deny match (wildcards, last-match-wins) */
+  private matchToolDeny(toolName: string) {
+    return findMatch(this.config.tools?.deny ?? {}, toolName);
+  }
+
+  /** Config tool-name allow match; an explicit `false` entry does not allow */
+  private matchToolAllow(toolName: string): boolean {
+    return findMatch(this.config.tools?.allow ?? {}, toolName)?.value === true;
+  }
+
   private checkDeny(ctx: EvaluateContext): boolean {
+    // Tool-name deny (any tool, any mode)
+    if (this.matchToolDeny(ctx.toolName)) return true;
+
     // Bash deny: config patterns + hardcoded safety net
     if (ctx.toolName === "bash") {
       return this.checkBashDeny(String(ctx.input.command ?? ""));
@@ -297,7 +319,9 @@ export class RuleEngine {
       if (pathDenyResult) return false; // deny overrides allow
     }
 
-    // Config bash allow (for non-bash tools, check if tool is in allow list)
+    // Config tool-name allow (non-bash only; bash keeps command/path rules)
+    if (this.matchToolAllow(ctx.toolName)) return true;
+
     if (READONLY_TOOLS.has(ctx.toolName)) return true;
 
     // Hardcoded allow

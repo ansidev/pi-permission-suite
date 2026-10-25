@@ -129,6 +129,10 @@
       "bun run *": true
     }
   },
+  "tools": {
+    "deny": {},
+    "allow": {}
+  },
   "path": {
     "deny": {
       "*.env": "🔒 Prohibit access to environment variable files",

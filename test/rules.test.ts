@@ -248,3 +248,49 @@ test("RuleEngine: evaluateAsync uses tree-sitter for bash", async () => {
   // Undefined falls to mode layer
   expect(await rules.evaluateAsync("bash", { command: "npm install" })).toBeUndefined();
 });
+
+// ─── tools.allow / tools.deny (tool-name wildcard rules) ───────────────
+
+function withToolRules(tools: { deny?: Record<string, string>; allow?: Record<string, boolean> } | undefined): RuleEngine {
+  const rules = new RuleEngine();
+  (rules as unknown as { config: { tools?: unknown } }).config.tools = tools;
+  return rules;
+}
+
+test("tools.allow: wildcard match allows, no-match falls through", () => {
+  const rules = withToolRules({ allow: { "list_*": true, "tinyfish_search": true } });
+  expect(rules.evaluate("list_foo", {})).toBe("allow");
+  expect(rules.evaluate("tinyfish_search", {})).toBe("allow"); // exact name
+  expect(rules.evaluate("get_foo", {})).toBeUndefined(); // no match
+  expect(rules.evaluate("tinyfish_search_x", {})).toBeUndefined();
+});
+
+test("tools.allow: false value does not allow", () => {
+  const rules = withToolRules({ allow: { "list_*": false } });
+  expect(rules.evaluate("list_foo", {})).toBeUndefined();
+});
+
+test("tools.deny: blocks matching tool and overrides tools.allow", () => {
+  const rules = withToolRules({ deny: { "danger_*": "no danger" }, allow: { "*": true } });
+  expect(rules.evaluate("danger_zone", {})).toBe("deny");
+  expect(rules.getDenyMessage("danger_zone", {})).toBe("no danger");
+  expect(rules.evaluate("list_foo", {})).toBe("allow");
+});
+
+test("tools.deny: applies to evaluateAsync including bash", async () => {
+  const rules = withToolRules({ deny: { "bash": "no bash", "danger_*": "no" } });
+  expect(await rules.evaluateAsync("bash", { command: "ls" })).toBe("deny");
+  expect(await rules.evaluateAsync("danger_x", {})).toBe("deny");
+});
+
+test("tools.allow does not bypass path deny", () => {
+  const rules = withToolRules({ allow: { "write": true } });
+  expect(rules.evaluate("write", { path: ".env", content: "x" })).toBe("deny");
+});
+
+test("missing tools section behaves as before", () => {
+  const rules = withToolRules(undefined);
+  expect(rules.evaluate("list_foo", {})).toBeUndefined();
+  expect(rules.evaluate("read", { path: "a.ts" })).toBe("allow");
+  expect(rules.getRuleNames().allow.length).toBeGreaterThan(0);
+});

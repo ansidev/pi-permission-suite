@@ -15,6 +15,10 @@
  *     "deny": { "pattern": "reason", ... },
  *     "allow": { "pattern": true, ... }
  *   },
+ *   "tools": {
+ *     "deny": { "tool_name_pattern": "reason", ... },
+ *     "allow": { "tool_name_pattern": true, ... }
+ *   },
  *   "external_directory": "mode" | "deny" | "allow"
  * }
  */
@@ -33,6 +37,11 @@ export interface ApprovalConfig {
   path: {
     deny: Record<string, string>;
     allow: Record<string, boolean>;
+  };
+  /** Tool-name rules (wildcards `*` and `?`); optional for older configs */
+  tools?: {
+    deny?: Record<string, string>;
+    allow?: Record<string, boolean>;
   };
 }
 
@@ -78,6 +87,7 @@ export function loadConfig(): ApprovalConfig {
   const minimal: ApprovalConfig = {
     bash: { deny: {}, allow: {} },
     path: { deny: {}, allow: {} },
+    tools: { deny: {}, allow: {} },
     external_directory: "mode",
   };
   writeFileSync(path, JSON.stringify(minimal, null, 2), "utf-8");

@@ -93,7 +93,7 @@ Mode-layer decision (ask/plan block writes, act passes, auto delegates to AI)
 
 Default rules ship in `config.default.json`.
 
-User config lives at `~/.pi/extensions/pi-permission-suite/config.json`. Created automatically on first load from the default.
+User config lives at `~/.pi/agent/extensions/pi-permission-suite/config.json`. Created automatically on first load from the default.
 
 ```jsonc
 {
@@ -110,6 +110,16 @@ User config lives at `~/.pi/extensions/pi-permission-suite/config.json`. Created
       "git status": true,
       "git diff": true,
       "cat *": true
+    }
+  },
+  // tool-name rules (wildcards `*` / `?`), e.g. MCP tools
+  "tools": {
+    "deny": {
+      "dangerous_*": "block dangerous tools"
+    },
+    "allow": {
+      "list_*": true,
+      "tinyfish_*": true
     }
   },
   // cross-tool file path rules
@@ -132,6 +142,7 @@ User config lives at `~/.pi/extensions/pi-permission-suite/config.json`. Created
 - `deny` entries → hard block, no mode can override (including `act`)
 - `allow` entries → auto-approve, skip the mode layer
 - Neither matches → delegate to mode layer
+- `tools.deny` / `tools.allow` match the tool name (`*` and `?` wildcards, last match wins) for any tool except `bash`'s command rules. `tools.deny` blocks in every mode and beats `tools.allow`; a `tools.allow` entry needs the value `true`. A missing `tools` section changes nothing. Path deny rules still override `tools.allow`.
 - `external_directory`: `"mode"` = fall through to mode; `"deny"` = hard block; `"allow"` = approve
 
 ### Jev decision provider
