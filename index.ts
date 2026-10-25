@@ -11,7 +11,7 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import type { ApprovalMode, ApprovalState } from "./types.ts";
 import { RuleEngine } from "./rules.ts";
 import { autoApprove, subagentProvider } from "./approver.ts";
-import { registerDecisionProvider, type DecisionRequest } from "./decision-provider.ts";
+import { registerDecisionProvider, usesDecisionProvider, type DecisionRequest } from "./decision-provider.ts";
 import { Type } from "typebox";
 import { registerJevProvider } from "./jev-provider.ts";
 import { createHttpDecisionProviderFromDecision } from "./http-decision-provider.ts";
@@ -176,8 +176,12 @@ async function handleToolCall(
     return { block: true, reason: msg };
   }
 
-  // 2. Act: allow all
-  if (state.mode === "act") { state.stats.approved++; return undefined; }
+  // 2. Act: allow all, unless the user opted in to Decision provider checks for act
+  const decisionConfig = state.rules.getDecisionConfig();
+  if (state.mode === "act" && !usesDecisionProvider(state.mode, decisionConfig, result)) {
+    state.stats.approved++;
+    return undefined;
+  }
 
   // 3. Ask/Plan: read-only (reuse ALLOW rules, bash read-only commands also allowed)
   if (state.mode === "ask" || state.mode === "plan") {
@@ -189,8 +193,8 @@ async function handleToolCall(
     return { block: true, reason: `${cfg(state.mode).icon} ${state.mode.toUpperCase()}: ${toolName} disabled` };
   }
 
-  // 4. Auto: allow passes through, rest goes to subagent
-  if (state.mode === "auto") {
+  // 4. Auto (and opted-in Act): allow passes through, rest goes to the Decision provider
+  if (state.mode === "auto" || state.mode === "act") {
     if (result === "allow") { state.stats.approved++; return undefined; }
 
     ctx.ui.setStatus("pi-permission-suite", ctx.ui.theme.fg("warning", "🤖 Approving..."));
@@ -203,7 +207,7 @@ async function handleToolCall(
       ruleResult: result,
     };
     const audit = parseAuditConfig((state.rules.getRawDecisionConfig() as { audit?: unknown } | undefined)?.audit);
-    const decision = await autoApprove(ctx, request, state.rules.getDecisionConfig(), ctx.signal, (res, out) =>
+    const decision = await autoApprove(ctx, request, decisionConfig, ctx.signal, (res, out) =>
       writeAuditEntry(buildAuditEntry(request, res, out.approved, out.source === "human"), audit),
       state.debug ? (m) => ctx.ui.notify(m, "info") : undefined);
 
@@ -217,7 +221,7 @@ async function handleToolCall(
 
     return decision.approved
       ? undefined
-      : { block: true, reason: `Auto rejected (${decision.source}): ${decision.reason}` };
+      : { block: true, reason: `${state.mode === "act" ? "Act" : "Auto"} rejected (${decision.source}): ${decision.reason}` };
   }
 
   return undefined;

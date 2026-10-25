@@ -162,6 +162,7 @@ Auto mode asks a Decision provider about every call that no rule settled. Config
 | `provider` | `"subagent"` | `subagent`, `jev` or `http` |
 | `endpoint` | — | URL for the `http` provider (`decision.http.url` takes precedence) |
 | `apiKeyEnv` | — | Name of the env var holding the API key, sent as `Authorization: Bearer <key>`. The key itself never goes in config. |
+| `modes` | `["auto"]` | Approval modes that consult the provider. Add `"act"` to also check calls in Act mode (opt-in; allow rules still skip it, deny rules still block). With the default, Act stays full-permission and never calls a provider. |
 | `confidenceThreshold` | `0.7` | Below this the result is `ask` |
 | `timeoutMs` | `10000` | Per-call timeout; on expiry the result is `ask` |
 | `audit.enabled` | `true` | Write the audit log |

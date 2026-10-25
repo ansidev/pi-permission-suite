@@ -13,6 +13,7 @@
  *     "provider": "subagent",       // registered provider name
  *     "timeoutMs": 10000,           // per-call timeout
  *     "confidenceThreshold": 0.7,   // below this -> fallback
+ *     "modes": ["auto"],            // modes that consult the provider; add "act" to opt in
  *     "endpoint": "https://…",      // http provider URL (optional)
  *     "apiKeyEnv": "DECISION_API_KEY", // env var holding the API key (optional)
  *     "audit": { "enabled": true, "path": "…" }  // see decision-audit.ts
@@ -62,13 +63,18 @@ export interface DecisionConfig {
   endpoint?: string;
   /** Name of the env var holding the API key (the key itself is never in config) */
   apiKeyEnv?: string;
+  /** Approval modes in which the provider is consulted (default: auto only; act is opt-in) */
+  modes: DecisionMode[];
   onFailure: "ask";
 }
+
+export type DecisionMode = "act" | "auto";
 
 export const DEFAULT_DECISION_CONFIG: DecisionConfig = {
   provider: "subagent",
   timeoutMs: 10_000,
   confidenceThreshold: 0.7,
+  modes: ["auto"],
   onFailure: "ask",
 };
 
@@ -84,19 +90,28 @@ export interface ResolvedDecision extends DecisionResponse {
 /** Validate raw config; invalid fields fall back to defaults. Never throws. */
 export function parseDecisionConfig(raw: unknown): DecisionConfig {
   const d = DEFAULT_DECISION_CONFIG;
-  if (typeof raw !== "object" || raw === null) return { ...d };
+  if (typeof raw !== "object" || raw === null) return { ...d, modes: [...d.modes] };
   const r = raw as Record<string, unknown>;
   const num = (v: unknown, ok: (n: number) => boolean, def: number) =>
     typeof v === "number" && Number.isFinite(v) && ok(v) ? v : def;
   const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : undefined);
+  const modes = Array.isArray(r.modes)
+    ? [...new Set(r.modes.filter((m): m is DecisionMode => m === "act" || m === "auto"))]
+    : [];
   return {
     provider: typeof r.provider === "string" && r.provider.trim() ? r.provider.trim() : d.provider,
     timeoutMs: num(r.timeoutMs, (n) => n > 0, d.timeoutMs),
     confidenceThreshold: num(r.confidenceThreshold, (n) => n >= 0 && n <= 1, d.confidenceThreshold),
     endpoint: str(r.endpoint),
     apiKeyEnv: str(r.apiKeyEnv),
+    modes: modes.length ? modes : [...d.modes],
     onFailure: "ask",
   };
+}
+
+/** Whether the Decision provider is consulted for this mode and rule result (allow rules skip it). */
+export function usesDecisionProvider(mode: string, config: DecisionConfig, ruleResult: RuleResult): boolean {
+  return ruleResult !== "allow" && (mode === "auto" || (mode === "act" && config.modes.includes("act")));
 }
 
 // ─── Registry ──────────────────────────────────────────────────────────

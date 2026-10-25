@@ -3,6 +3,7 @@
     "provider": "subagent",
     "endpoint": "",
     "apiKeyEnv": "",
+    "modes": ["auto"],
     "confidenceThreshold": 0.7,
     "timeoutMs": 10000,
     "audit": { "enabled": true }

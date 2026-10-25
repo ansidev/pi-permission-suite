@@ -2,6 +2,7 @@ import { test, expect, beforeEach } from "bun:test";
 import {
   DEFAULT_DECISION_CONFIG,
   parseDecisionConfig,
+  usesDecisionProvider,
   registerDecisionProvider,
   getDecisionProvider,
   clearDecisionProviders,
@@ -19,10 +20,37 @@ beforeEach(() => clearDecisionProviders());
 test("parseDecisionConfig: defaults and validation", () => {
   expect(parseDecisionConfig(undefined)).toEqual(DEFAULT_DECISION_CONFIG);
   expect(parseDecisionConfig({ provider: "http", timeoutMs: 500, confidenceThreshold: 0.9 })).toEqual({
-    provider: "http", timeoutMs: 500, confidenceThreshold: 0.9, onFailure: "ask",
+    provider: "http", timeoutMs: 500, confidenceThreshold: 0.9, modes: ["auto"], onFailure: "ask",
   });
   expect(parseDecisionConfig({ timeoutMs: -1, confidenceThreshold: 2, provider: "" })).toEqual(DEFAULT_DECISION_CONFIG);
   expect(parseDecisionConfig({ timeoutMs: "5" })).toEqual(DEFAULT_DECISION_CONFIG);
+});
+
+test("parseDecisionConfig: modes", () => {
+  expect(parseDecisionConfig({ modes: ["act", "auto", "act"] }).modes).toEqual(["act", "auto"]);
+  expect(parseDecisionConfig({ modes: ["act"] }).modes).toEqual(["act"]);
+  expect(parseDecisionConfig({ modes: ["plan", 1] }).modes).toEqual(["auto"]);
+  expect(parseDecisionConfig({ modes: "act" }).modes).toEqual(["auto"]);
+  expect(parseDecisionConfig({}).modes).toEqual(["auto"]);
+});
+
+test("usesDecisionProvider: auto always, act opt-in, allow rules skip, ask/plan never", () => {
+  const optIn = { ...DEFAULT_DECISION_CONFIG, modes: ["act" as const, "auto" as const] };
+  expect(usesDecisionProvider("auto", DEFAULT_DECISION_CONFIG, undefined)).toBe(true);
+  expect(usesDecisionProvider("act", DEFAULT_DECISION_CONFIG, undefined)).toBe(false);
+  expect(usesDecisionProvider("act", optIn, undefined)).toBe(true);
+  expect(usesDecisionProvider("act", optIn, "allow")).toBe(false);
+  expect(usesDecisionProvider("auto", optIn, "allow")).toBe(false);
+  expect(usesDecisionProvider("ask", optIn, undefined)).toBe(false);
+  expect(usesDecisionProvider("plan", optIn, undefined)).toBe(false);
+});
+
+test("act mode request resolves through the provider like auto", async () => {
+  const r = await resolveDecision(
+    mk(async () => ({ verdict: "deny", confidence: 0.9, reason: "no" })),
+    { ...req, mode: "act" }, cfg,
+  );
+  expect(r).toMatchObject({ verdict: "deny", fallback: false });
 });
 
 test("registry", () => {
