@@ -17,6 +17,7 @@ import { loadConfig } from "./config-loader.ts";
 import { parseDecisionConfig, type DecisionConfig } from "./decision-provider.ts";
 import { findMatch } from "./wildcard-matcher.ts";
 import { parseBashCommand } from "./bash-parser.ts";
+import { matchToolAllowRule, matchToolDenyRule } from "./tool-rules.ts";
 import {
   expandHome,
   normalizePath,
@@ -157,7 +158,7 @@ export class RuleEngine {
     if (!command.trim()) return this.evaluate(toolName, input);
 
     // 0. Tool-name deny
-    if (this.matchToolDeny(toolName)) return "deny";
+    if (this.matchToolDeny(toolName, input) !== undefined) return "deny";
 
     // 1. Deny — try tree-sitter first
     const bashDeny = await this.checkBashDenyAsync(command);
@@ -181,8 +182,8 @@ export class RuleEngine {
     const ctx: EvaluateContext = { toolName, input, cwd: this.cwd };
 
     // Check config tool-name deny
-    const toolDeny = this.matchToolDeny(toolName);
-    if (toolDeny) return toolDeny.value;
+    const toolDeny = this.matchToolDeny(toolName, input);
+    if (toolDeny !== undefined) return toolDeny;
 
     // Check config bash deny
     if (toolName === "bash") {
@@ -230,19 +231,19 @@ export class RuleEngine {
 
   // ─── Deny checking ─────────────────────────────────────────────────
 
-  /** Config tool-name deny match (wildcards, last-match-wins) */
-  private matchToolDeny(toolName: string) {
-    return findMatch(this.config.tools?.deny ?? {}, toolName);
+  /** Config tool deny match (name wildcards + optional arg conditions); returns reason */
+  private matchToolDeny(toolName: string, input: Record<string, unknown>): string | undefined {
+    return matchToolDenyRule(this.config.tools?.deny, toolName, input);
   }
 
-  /** Config tool-name allow match; an explicit `false` entry does not allow */
-  private matchToolAllow(toolName: string): boolean {
-    return findMatch(this.config.tools?.allow ?? {}, toolName)?.value === true;
+  /** Config tool allow match; an explicit `false` entry does not allow */
+  private matchToolAllow(toolName: string, input: Record<string, unknown>): boolean {
+    return matchToolAllowRule(this.config.tools?.allow, toolName, input);
   }
 
   private checkDeny(ctx: EvaluateContext): boolean {
     // Tool-name deny (any tool, any mode)
-    if (this.matchToolDeny(ctx.toolName)) return true;
+    if (this.matchToolDeny(ctx.toolName, ctx.input) !== undefined) return true;
 
     // Bash deny: config patterns + hardcoded safety net
     if (ctx.toolName === "bash") {
@@ -320,7 +321,7 @@ export class RuleEngine {
     }
 
     // Config tool-name allow (non-bash only; bash keeps command/path rules)
-    if (this.matchToolAllow(ctx.toolName)) return true;
+    if (this.matchToolAllow(ctx.toolName, ctx.input)) return true;
 
     if (READONLY_TOOLS.has(ctx.toolName)) return true;
 

@@ -294,3 +294,80 @@ test("missing tools section behaves as before", () => {
   expect(rules.evaluate("read", { path: "a.ts" })).toBe("allow");
   expect(rules.getRuleNames().allow.length).toBeGreaterThan(0);
 });
+
+// ─── tools.allow / tools.deny with arg conditions ──────────────────────
+
+type AnyTools = { deny?: Record<string, unknown>; allow?: Record<string, unknown> };
+function withArgRules(tools: AnyTools): RuleEngine {
+  return withToolRules(tools as Parameters<typeof withToolRules>[0]);
+}
+
+const MCP_DESCRIBE_ALLOW: AnyTools = {
+  allow: {
+    mcp: [
+      { args: { describe: true, tool: false } },
+      { args: { search: true, tool: false } },
+    ],
+  },
+};
+
+test("tools.allow args: mcp describe/search allowed, tool call falls through", () => {
+  const rules = withArgRules(MCP_DESCRIBE_ALLOW);
+  expect(rules.evaluate("mcp", { describe: "kanpal_get_issue" })).toBe("allow");
+  expect(rules.evaluate("mcp", { search: "issue" })).toBe("allow");
+  expect(rules.evaluate("mcp", { tool: "kanpal_get_issue", args: { key: "X" } })).toBeUndefined();
+  expect(rules.evaluate("mcp", { describe: "x", tool: "y" })).toBeUndefined();
+  expect(rules.evaluate("mcp", {})).toBeUndefined();
+});
+
+test("tools.allow args: single object form and string/array/wildcard conditions", () => {
+  const rules = withArgRules({
+    allow: { mcp: { args: { server: ["kanpal", "kb-*"], describe: "kanpal_*" } } },
+  });
+  expect(rules.evaluate("mcp", { server: "kanpal", describe: "kanpal_get_issue" })).toBe("allow");
+  expect(rules.evaluate("mcp", { server: "kb-okf", describe: "kanpal_x" })).toBe("allow");
+  expect(rules.evaluate("mcp", { server: "other", describe: "kanpal_x" })).toBeUndefined();
+  expect(rules.evaluate("mcp", { server: "kanpal", describe: "other" })).toBeUndefined();
+});
+
+test("tools.allow args: allow with no args behaves like true; malformed never matches", () => {
+  expect(withArgRules({ allow: { foo: {} } }).evaluate("foo", {})).toBe("allow");
+  expect(withArgRules({ allow: { foo: { args: { a: 5 } } } }).evaluate("foo", { a: 5 })).toBeUndefined();
+  expect(withArgRules({ allow: { foo: { args: { a: "x" } } } }).evaluate("foo", { a: { b: 1 } })).toBeUndefined();
+});
+
+test("tools.deny args: only matching calls are denied, with reason", () => {
+  const rules = withArgRules({
+    deny: { mcp: { reason: "no mcp tool calls", args: { tool: "kanpal_delete_*" } } },
+  });
+  expect(rules.evaluate("mcp", { tool: "kanpal_delete_issue" })).toBe("deny");
+  expect(rules.getDenyMessage("mcp", { tool: "kanpal_delete_issue" })).toBe("no mcp tool calls");
+  expect(rules.evaluate("mcp", { tool: "kanpal_get_issue" })).toBeUndefined();
+  expect(rules.getDenyMessage("mcp", { tool: "kanpal_get_issue" })).toBeUndefined();
+});
+
+test("tools.deny args: deny wins over allow for the same call", () => {
+  const rules = withArgRules({
+    deny: { mcp: { reason: "blocked", args: { describe: "secret_*" } } },
+    allow: MCP_DESCRIBE_ALLOW.allow,
+  });
+  expect(rules.evaluate("mcp", { describe: "secret_tool" })).toBe("deny");
+  expect(rules.evaluate("mcp", { describe: "public_tool" })).toBe("allow");
+});
+
+test("tools.deny args: string, array and default reason", async () => {
+  const rules = withArgRules({
+    deny: { a: ["plain reason"], b: { args: { x: true } } },
+  });
+  expect(rules.getDenyMessage("a", {})).toBe("plain reason");
+  expect(rules.evaluate("b", { x: 1 })).toBe("deny");
+  expect(rules.getDenyMessage("b", { x: 1 })).toBeTruthy();
+  expect(rules.evaluate("b", {})).toBeUndefined();
+  expect(await rules.evaluateAsync("b", { x: 1 })).toBe("deny");
+});
+
+test("tools.allow args: bash still honors arg-based tool deny in evaluateAsync", async () => {
+  const rules = withArgRules({ deny: { bash: { reason: "no", args: { command: "*forbidden*" } } } });
+  expect(await rules.evaluateAsync("bash", { command: "echo forbidden" })).toBe("deny");
+  expect(await rules.evaluateAsync("bash", { command: "ls" })).toBe("allow");
+});

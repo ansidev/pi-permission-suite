@@ -26,6 +26,7 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
+import type { ToolAllowValue, ToolDenyValue } from "./tool-rules.ts";
 
 export interface ApprovalConfig {
   /** Decision provider settings; validated by parseDecisionConfig */
@@ -38,10 +39,13 @@ export interface ApprovalConfig {
     deny: Record<string, string>;
     allow: Record<string, boolean>;
   };
-  /** Tool-name rules (wildcards `*` and `?`); optional for older configs */
+  /**
+   * Tool-name rules (wildcards `*` and `?`); optional for older configs.
+   * Values may carry arg conditions, see tool-rules.ts.
+   */
   tools?: {
-    deny?: Record<string, string>;
-    allow?: Record<string, boolean>;
+    deny?: Record<string, ToolDenyValue>;
+    allow?: Record<string, ToolAllowValue>;
   };
 }
 

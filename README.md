@@ -119,7 +119,12 @@ User config lives at `~/.pi/agent/extensions/pi-permission-suite/config.json`. C
     },
     "allow": {
       "list_*": true,
-      "tinyfish_*": true
+      "tinyfish_*": true,
+      // arg-based: allow `mcp({describe})` / `mcp({search})`, not `mcp({tool, args})`
+      "mcp": [
+        { "args": { "describe": true, "tool": false } },
+        { "args": { "search": true, "tool": false } }
+      ]
     }
   },
   // cross-tool file path rules
@@ -144,6 +149,35 @@ User config lives at `~/.pi/agent/extensions/pi-permission-suite/config.json`. C
 - Neither matches → delegate to mode layer
 - `tools.deny` / `tools.allow` match the tool name (`*` and `?` wildcards, last match wins) for any tool except `bash`'s command rules. `tools.deny` blocks in every mode and beats `tools.allow`; a `tools.allow` entry needs the value `true`. A missing `tools` section changes nothing. Path deny rules still override `tools.allow`.
 - `external_directory`: `"mode"` = fall through to mode; `"deny"` = hard block; `"allow"` = approve
+
+### Arg-based tool rules
+
+A `tools` rule can also match the call's input fields, so one tool can be split by how it is called. Plain values (`true`, `"reason"`) keep working unchanged.
+
+- allow value: `true` / `false` / `{ "args": {...} }` / an array of `{ "args": {...} }`
+- deny value: `"reason"` / `{ "reason": "...", "args": {...} }` / an array of those
+- `args` maps an input field to a condition; **all** fields must match:
+  - `true` = field is present (not null/undefined/empty string)
+  - `false` = field is absent
+  - `"pattern"` or `["p1", "p2"]` = the field's string value matches a wildcard pattern (`*`, `?`); non-scalar values never match
+- Array entries are OR-ed. A conditional entry whose `args` do not match falls through to earlier rules. An entry with no `args` always matches.
+- Deny is evaluated first and always wins over allow, in every mode.
+
+Example: allow the `mcp` proxy's `describe` and `search` lookups but not `mcp({ tool, args })` calls:
+
+```json
+"tools": {
+  "allow": {
+    "mcp": [
+      { "args": { "describe": true, "tool": false } },
+      { "args": { "search": true, "tool": false } }
+    ]
+  },
+  "deny": {
+    "mcp": { "reason": "destructive MCP call", "args": { "tool": "*_delete_*" } }
+  }
+}
+```
 
 ### Jev decision provider
 
@@ -184,6 +218,7 @@ pi-permission-suite/
 ├── index.ts              # Main extension entry
 ├── types.ts              # Shared types
 ├── rules.ts              # Rule engine
+├── tool-rules.ts         # Tool rules + arg conditions
 ├── approver.ts           # Auto-approver
 ├── decision-provider.ts  # Decision API provider interface
 ├── jev-provider.ts       # Jev (System One) decision provider
