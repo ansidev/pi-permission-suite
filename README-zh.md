@@ -8,11 +8,15 @@
 
 为 Pi coding agent 提供 **Act / Auto / Ask / Plan** 四种权限模式、命令和路径规则引擎、以及 subagent 自动审批。基于 [`@gotgenes/pi-permission-system`](https://www.npmjs.com/package/@gotgenes/pi-permission-system) 增强改造。
 
+> **Fork 来源：** `@gotgenes/pi-permission-system` → [`Eddie0521/pi-permission-suite`](https://github.com/Eddie0521/pi-permission-suite) → 本 fork（[`ansidev/pi-permission-suite`](https://github.com/ansidev/pi-permission-suite)）。本 fork 新增可插拔的 Decision API（subagent / Jev / HTTP provider、审计日志、`decision.modes`）、`tools` 通配符与参数条件 allow/deny 规则，以及 `/pi-permission-suite debug on|off`。
+
 ## 安装
 
 ```bash
-pi install npm:pi-permission-suite
+pi install git:github.com/ansidev/pi-permission-suite
 ```
+
+> 请勿使用 `npm:pi-permission-suite`：该 npm 包由上游项目发布，不包含本 fork 的改动。可用 `@<tag-或-commit>` 固定版本，或用 `pi -e git:github.com/ansidev/pi-permission-suite` 临时试用。本地克隆：`npm install && pi install ./`。
 
 安装后重启 pi，你会获得：
 - `/approval-mode` 命令切换四种模式
@@ -36,6 +40,7 @@ pi install npm:pi-permission-suite
 
 ```bash
 /approval-mode [ask|auto|act|plan]  # 切换模式
+/pi-permission-suite debug on|off    # 打印 Decision API 调用/响应消息（默认关闭）
 ```
 
 ## 工具（agent 可调用）
@@ -208,6 +213,10 @@ pi-permission-suite/
 ├── rules.ts              # 规则引擎
 ├── tool-rules.ts         # 工具规则与参数条件
 ├── approver.ts           # 审批器
+├── decision-provider.ts  # Decision API provider 接口
+├── jev-provider.ts       # Jev (System One) decision provider
+├── http-decision-provider.ts # 通用 HTTP decision provider
+├── decision-audit.ts     # Decision 审计日志 (JSONL)
 ├── subprocess-runner.ts  # 子进程调用
 ├── bash-parser.ts        # tree-sitter bash 解析
 ├── wildcard-matcher.ts   # 通配符匹配
@@ -220,4 +229,4 @@ pi-permission-suite/
 
 ## License
 
-MIT — 基于 [`@gotgenes/pi-permission-system`](https://www.npmjs.com/package/@gotgenes/pi-permission-system)（MIT）。
+MIT — fork 自 [`Eddie0521/pi-permission-suite`](https://github.com/Eddie0521/pi-permission-suite)（MIT），其基于 [`@gotgenes/pi-permission-system`](https://www.npmjs.com/package/@gotgenes/pi-permission-system)（MIT）。

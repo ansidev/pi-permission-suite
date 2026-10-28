@@ -6,13 +6,17 @@
 
 > Four approval modes + command-level security restrictions for the Pi coding agent.
 
-A Pi extension that provides **Act / Auto / Ask / Plan** permission modes, a rule engine for command and path protection, and a subagent-based auto-approver. Enhanced fork of [`@gotgenes/pi-permission-system`](https://www.npmjs.com/package/@gotgenes/pi-permission-system).
+A Pi extension that provides **Act / Auto / Ask / Plan** permission modes, a rule engine for command and path protection, and a subagent-based auto-approver.
+
+> **Fork lineage:** `@gotgenes/pi-permission-system` → [`Eddie0521/pi-permission-suite`](https://github.com/Eddie0521/pi-permission-suite) → this fork ([`ansidev/pi-permission-suite`](https://github.com/ansidev/pi-permission-suite)). This fork adds the pluggable Decision API (subagent / Jev / HTTP providers, audit log, `decision.modes`), wildcard and arg-based `tools` allow/deny rules, and `/pi-permission-suite debug on|off`.
 
 ## Install
 
 ```bash
-pi install npm:pi-permission-suite
+pi install git:github.com/ansidev/pi-permission-suite
 ```
+
+> Don't use `npm:pi-permission-suite`: that npm package is published from the upstream project and does not include this fork's changes. Pin a ref with `@<tag-or-commit>`, or try it for one run with `pi -e git:github.com/ansidev/pi-permission-suite`. From a local clone: `npm install && pi install ./`.
 
 Once installed and pi restarted, you get:
 - `/approval-mode` command to switch between four modes
@@ -37,7 +41,6 @@ Once installed and pi restarted, you get:
 ```bash
 /approval-mode [ask|auto|act|plan]  # Switch mode
 /pi-permission-suite debug on|off    # Print Decision API call/response messages (default off)
-
 ```
 
 ## Tool (agent-callable)
@@ -187,6 +190,24 @@ Example: allow the `mcp` proxy's `describe` and `search` lookups but not `mcp({ 
 - `TYPESAFE_BASE_URL`, `TYPESAFE_MODEL` (optional; default `https://api.typesafe.ai`, `jev-latest`).
 - Any failure, timeout or probability below `confidenceThreshold` resolves to `ask`, never `allow`.
 
+### HTTP decision provider
+
+`http-decision-provider.ts` POSTs the tool-call context (`DecisionRequest`) as JSON to any endpoint and expects `{ "verdict": "allow|deny|ask", "confidence": 0..1, "reason"?: string }`. Any error, timeout, non-2xx, redirect, oversized or schema-invalid response falls back to `ask`.
+
+```json
+{
+  "decision": {
+    "provider": "http",
+    "http": {
+      "url": "https://decision.example.com/v1/decide",
+      "authHeader": "Authorization",
+      "authValue": "env:DECISION_API_TOKEN",
+      "timeoutMs": 5000
+    }
+  }
+}
+```
+
 ### Decision provider settings
 
 Auto mode asks a Decision provider about every call that no rule settled. Configure it under `decision` (all fields optional; invalid values fall back to defaults):
@@ -230,28 +251,10 @@ pi-permission-suite/
 ├── path-utils.ts         # Path utilities
 ├── config-loader.ts      # Config loader
 ├── config.default.json   # Default rules
-└── README.md             # This file (English)
+├── README.md             # This file (English)
 └── README-zh.md          # Chinese translation
 ```
 
 ## License
 
-MIT — based on [`@gotgenes/pi-permission-system`](https://www.npmjs.com/package/@gotgenes/pi-permission-system) (MIT).
-
-## HTTP Decision API provider
-
-`http-decision-provider.ts` POSTs the tool-call context (`DecisionRequest`) as JSON to any endpoint and expects `{ "verdict": "allow|deny|ask", "confidence": 0..1, "reason"?: string }`. Any error, timeout, non-2xx, redirect, oversized or schema-invalid response falls back to `ask`.
-
-```json
-{
-  "decision": {
-    "provider": "http",
-    "http": {
-      "url": "https://decision.example.com/v1/decide",
-      "authHeader": "Authorization",
-      "authValue": "env:DECISION_API_TOKEN",
-      "timeoutMs": 5000
-    }
-  }
-}
-```
+MIT — forked from [`Eddie0521/pi-permission-suite`](https://github.com/Eddie0521/pi-permission-suite) (MIT), itself based on [`@gotgenes/pi-permission-system`](https://www.npmjs.com/package/@gotgenes/pi-permission-system) (MIT).

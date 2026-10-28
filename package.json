@@ -27,11 +27,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Eddie0521/pi-permission-suite.git"
+    "url": "git+https://github.com/ansidev/pi-permission-suite.git"
   },
-  "homepage": "https://github.com/Eddie0521/pi-permission-suite#readme",
+  "homepage": "https://github.com/ansidev/pi-permission-suite#readme",
   "bugs": {
-    "url": "https://github.com/Eddie0521/pi-permission-suite/issues"
+    "url": "https://github.com/ansidev/pi-permission-suite/issues"
   },
   "devDependencies": {
     "@types/node": "^22.20.0"
