@@ -8,7 +8,7 @@
 
 A Pi extension that provides **Act / Auto / Ask / Plan** permission modes, a rule engine for command and path protection, and a subagent-based auto-approver.
 
-> **Fork lineage:** `@gotgenes/pi-permission-system` → [`Eddie0521/pi-permission-suite`](https://github.com/Eddie0521/pi-permission-suite) → this fork ([`ansidev/pi-permission-suite`](https://github.com/ansidev/pi-permission-suite)). This fork adds the pluggable Decision API (subagent / Jev / HTTP providers, audit log, `decision.modes`), wildcard and arg-based `tools` allow/deny rules, and `/pi-permission-suite debug on|off`.
+> **Fork lineage:** `@gotgenes/pi-permission-system` → [`Eddie0521/pi-permission-suite`](https://github.com/Eddie0521/pi-permission-suite) → this fork ([`ansidev/pi-permission-suite`](https://github.com/ansidev/pi-permission-suite)). This fork adds the pluggable Decision API (subagent / Jev / HTTP providers, audit log, `decision.modes`), wildcard and arg-based `tools` allow/deny rules, `/pi-permission-suite debug on|off`, and Herdr agent-state reporting.
 
 ## Install
 
@@ -232,6 +232,16 @@ Auto mode asks a Decision provider about every call that no rule settled. Config
 
 Each provider decision appends one JSON line to the audit file: `time`, `tool`, `mode`, `call` (one-line summary, truncated to 200 chars), `provider`, `verdict`, `confidence`, `reason`, `fallback`, `outcome` (`approved`/`denied`) and `decidedBy` (`provider`/`human`/`rules`). API keys and full tool input are never written. A write failure is ignored and does not affect the tool call.
 
+### Herdr integration
+
+When pi runs inside a [Herdr](https://herdr.dev) pane (`HERDR_ENV=1` with `HERDR_PANE_ID`, `HERDR_BIN_PATH` and `HERDR_SOCKET_PATH` set), the extension reports its state to Herdr so `herdr agent list` / `herdr pane get` show what pi is doing:
+
+- `working` when an agent turn starts
+- `blocked` while an Auto/Act-mode approval question is pending, with the pending tool in the message
+- `idle` when the run settles and pi is ready for input
+
+The agent is released (`pane release-agent`) on session shutdown. Everything is fire-and-forget: reports spawn a detached `herdr` subprocess with a short timeout, failures are ignored, and no report ever affects the permission decision. Outside Herdr the integration is a no-op — no subprocess is spawned.
+
 ## Project Structure
 
 ```
@@ -245,6 +255,7 @@ pi-permission-suite/
 ├── jev-provider.ts       # Jev (System One) decision provider
 ├── http-decision-provider.ts # Generic HTTP decision provider
 ├── decision-audit.ts     # Decision audit log (JSONL)
+├── herdr-reporter.ts     # Herdr agent-state reporting (no-op outside Herdr)
 ├── subprocess-runner.ts  # Subprocess runner
 ├── bash-parser.ts        # tree-sitter bash parser
 ├── wildcard-matcher.ts   # Glob matching

@@ -8,7 +8,7 @@
 
 为 Pi coding agent 提供 **Act / Auto / Ask / Plan** 四种权限模式、命令和路径规则引擎、以及 subagent 自动审批。基于 [`@gotgenes/pi-permission-system`](https://www.npmjs.com/package/@gotgenes/pi-permission-system) 增强改造。
 
-> **Fork 来源：** `@gotgenes/pi-permission-system` → [`Eddie0521/pi-permission-suite`](https://github.com/Eddie0521/pi-permission-suite) → 本 fork（[`ansidev/pi-permission-suite`](https://github.com/ansidev/pi-permission-suite)）。本 fork 新增可插拔的 Decision API（subagent / Jev / HTTP provider、审计日志、`decision.modes`）、`tools` 通配符与参数条件 allow/deny 规则，以及 `/pi-permission-suite debug on|off`。
+> **Fork 来源：** `@gotgenes/pi-permission-system` → [`Eddie0521/pi-permission-suite`](https://github.com/Eddie0521/pi-permission-suite) → 本 fork（[`ansidev/pi-permission-suite`](https://github.com/ansidev/pi-permission-suite)）。本 fork 新增可插拔的 Decision API（subagent / Jev / HTTP provider、审计日志、`decision.modes`）、`tools` 通配符与参数条件 allow/deny 规则、`/pi-permission-suite debug on|off`，以及 Herdr agent 状态上报。
 
 ## 安装
 
@@ -204,6 +204,16 @@ Auto 模式会把规则未决的调用交给 Decision provider。配置在 `deci
 
 每次 provider 决策向审计文件追加一行 JSON：`time`、`tool`、`mode`、`call`（单行摘要，最长 200 字符）、`provider`、`verdict`、`confidence`、`reason`、`fallback`、`outcome`（`approved`/`denied`）、`decidedBy`（`provider`/`human`/`rules`）。不会写入 API key 或完整的工具输入。写入失败会被忽略，不影响工具调用。
 
+### Herdr 集成
+
+当 pi 运行在 [Herdr](https://herdr.dev) pane 中时（`HERDR_ENV=1` 且 `HERDR_PANE_ID`、`HERDR_BIN_PATH`、`HERDR_SOCKET_PATH` 已设置），扩展会向 Herdr 上报状态，`herdr agent list` / `herdr pane get` 可看到 pi 当前在做什么：
+
+- `working`：agent 回合开始时
+- `blocked`：Auto/Act 模式的审批问题等待用户时，消息中包含待审批的工具
+- `idle`：回合结束、pi 等待输入时
+
+会话关闭时调用 `pane release-agent` 释放 agent。所有上报均为 fire-and-forget：通过分离的 `herdr` 子进程发送，失败被忽略，绝不影响权限决策流程。在 Herdr 之外该集成为 no-op，不会启动任何子进程。
+
 ## 项目结构
 
 ```
@@ -217,6 +227,7 @@ pi-permission-suite/
 ├── jev-provider.ts       # Jev (System One) decision provider
 ├── http-decision-provider.ts # 通用 HTTP decision provider
 ├── decision-audit.ts     # Decision 审计日志 (JSONL)
+├── herdr-reporter.ts     # Herdr agent 状态上报（Herdr 之外为 no-op）
 ├── subprocess-runner.ts  # 子进程调用
 ├── bash-parser.ts        # tree-sitter bash 解析
 ├── wildcard-matcher.ts   # 通配符匹配

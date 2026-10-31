@@ -16,6 +16,7 @@ import { Type } from "typebox";
 import { registerJevProvider } from "./jev-provider.ts";
 import { createHttpDecisionProviderFromDecision } from "./http-decision-provider.ts";
 import { buildAuditEntry, parseAuditConfig, writeAuditEntry } from "./decision-audit.ts";
+import { herdrAvailable, reportAgentState, releaseAgent } from "./herdr-reporter.ts";
 
 // ─── Mode configuration ──────────────────────────────────────────────
 
@@ -278,6 +279,12 @@ export default function(pi: ExtensionAPI): void {
   registerApprovalShortcut(pi, state);
 
   pi.on("tool_call", (event, ctx) => handleToolCall(event, ctx, state));
-  pi.on("before_agent_start", () => handleBeforeAgentStart(state));
+  pi.on("before_agent_start", () => {
+    reportAgentState("working");
+    return handleBeforeAgentStart(state);
+  });
+  pi.on("agent_end", () => reportAgentState("idle"));
+  pi.on("agent_settled", () => reportAgentState("idle"));
   pi.on("session_start", (_event, ctx) => handleSessionStart(ctx, state));
+  pi.on("session_shutdown", () => releaseAgent());
 }

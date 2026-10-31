@@ -6,7 +6,7 @@
  * configured provider and falls back to asking the user on any uncertainty.
  */
 
-import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { herdrAvailable, reportAgentState } from "./herdr-reporter.ts";
 import { runSubprocess, loadAgent } from "./subprocess-runner.ts";
 import type { ApprovalDecision } from "./types.ts";
 import {
@@ -72,6 +72,7 @@ export const subagentProvider: DecisionProvider = {
 async function escalate(ctx: ExtensionContext, toolName: string, input: Record<string, unknown>, reason: string): Promise<ApprovalDecision> {
   if (!ctx.hasUI) return { approved: false, source: "human", reason: "No UI" };
   const fmt = formatCall(toolName, input);
+  if (herdrAvailable()) reportAgentState("blocked", { message: `Approval uncertain: ${toolName}` });
   const c = await ctx.ui.select(`🤖 Approval uncertain\n\n${fmt}\n${reason}`, ["✅ Approve", "❌ Reject"]);
   return { approved: c?.includes("Approve") ?? false, source: "human" };
 }
