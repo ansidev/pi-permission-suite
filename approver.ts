@@ -69,7 +69,14 @@ export const subagentProvider: DecisionProvider = {
 
 // ─── Escalate to human ────────────────────────────────────────────────────
 
-async function escalate(ctx: ExtensionContext, toolName: string, input: Record<string, unknown>, reason: string): Promise<ApprovalDecision> {
+async function escalate(
+  ctx: ExtensionContext,
+  toolName: string,
+  input: Record<string, unknown>,
+  reason: string,
+  onDebug?: (message: string) => void,
+): Promise<ApprovalDecision> {
+  onDebug?.(`Pausing to ask the user: tool=${toolName} reason=${reason}`);
   if (!ctx.hasUI) return { approved: false, source: "human", reason: "No UI" };
   const fmt = formatCall(toolName, input);
   if (herdrAvailable()) reportAgentState("blocked", { message: `Approval uncertain: ${toolName}` });
@@ -99,7 +106,7 @@ export async function autoApprove(
   let outcome: ApprovalDecision;
   if (res.verdict === "allow") outcome = { approved: true, source: "subagent", reason: res.reason };
   else if (res.verdict === "deny") outcome = { approved: false, source: "subagent", reason: res.reason };
-  else outcome = await escalate(ctx, toolName, input, res.reason);
+  else outcome = await escalate(ctx, toolName, input, res.reason, onDebug);
 
   try {
     onDecision?.(res, outcome);

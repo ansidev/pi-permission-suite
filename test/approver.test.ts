@@ -58,6 +58,14 @@ test("error / low confidence / ask / missing provider -> asks the user", async (
   expect(calls).toHaveLength(1);
 });
 
+test("debug sink logs the escalation", async () => {
+  reg(async () => ({ verdict: "ask", confidence: 1, reason: "unsure" }));
+  const logs: string[] = [];
+  const { ctx } = fakeCtx("✅ Approve");
+  await autoApprove(ctx, req(), cfg, undefined, undefined, (m) => logs.push(m));
+  expect(logs.some((m) => m.includes("Pausing to ask the user") && m.includes("bash") && m.includes("unsure"))).toBe(true);
+});
+
 test("fallback without UI -> rejected, never allowed", async () => {
   reg(async () => { throw new Error("boom"); });
   const { ctx } = fakeCtx(undefined, false);
