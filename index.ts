@@ -191,7 +191,9 @@ async function handleToolCall(
       return undefined;
     }
     state.stats.denied++;
-    return { block: true, reason: `${cfg(state.mode).icon} ${state.mode.toUpperCase()}: ${toolName} disabled` };
+    const reason = `${cfg(state.mode).icon} ${state.mode.toUpperCase()}: ${toolName} disabled`;
+    if (state.debug) ctx.ui.notify(`Asking the user to approve: tool=${toolName} reason=${reason}`, "info");
+    return { block: true, reason };
   }
 
   // 4. Auto (and opted-in Act): allow passes through, rest goes to the Decision provider
