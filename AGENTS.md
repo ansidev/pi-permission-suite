@@ -41,6 +41,7 @@ There is no build or lint step. Try the extension locally with `pi -e ./`.
 - **Deny always wins**, in every mode including Act, and beats allow. Path deny rules override `tools.allow`.
 - **Secrets stay out of config and logs.** API keys come from env vars (`apiKeyEnv`, `TYPESAFE_API_KEY`, `env:` auth values). The audit log never stores keys or full tool input.
 - **No hardcoded TS defaults for rules**; defaults live in `config.default.json`. Keep new config fields optional with safe fallbacks (invalid values fall back to defaults).
+- **Debug logs are tagged.** Every debug log line must start with `[pi-permission-suite]` (use the `DEBUG_TAG` / `tagged()` helpers from `debug-log.ts`). This keeps lines greppable in piped or interleaved output, e.g. herdr panes or CI logs. Do not emit untagged debug output.
 - Use `.ts` extensions in relative imports (`import … from "./x.ts"`). Peer deps `@earendil-works/pi-coding-agent` and `typebox` are provided by Pi.
 - Keep all code, comments, config text and docs in English.
 - Add or update tests in `test/` for any rule, provider or config change. Tests import modules directly (`../rules.ts`).

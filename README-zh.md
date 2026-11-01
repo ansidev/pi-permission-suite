@@ -227,6 +227,7 @@ pi-permission-suite/
 ├── jev-provider.ts       # Jev (System One) decision provider
 ├── http-decision-provider.ts # 通用 HTTP decision provider
 ├── decision-audit.ts     # Decision 审计日志 (JSONL)
+├── debug-log.ts          # 带标签的调试日志（[pi-permission-suite] 前缀）
 ├── herdr-reporter.ts     # Herdr agent 状态上报（Herdr 之外为 no-op）
 ├── subprocess-runner.ts  # 子进程调用
 ├── bash-parser.ts        # tree-sitter bash 解析

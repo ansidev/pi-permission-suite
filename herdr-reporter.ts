@@ -9,6 +9,7 @@
  */
 
 import { spawn } from "node:child_process";
+import { DEBUG_TAG, type DebugSink } from "./debug-log.ts";
 
 const SOURCE = "pi-permission-suite";
 const AGENT = "pi";
@@ -36,8 +37,14 @@ export interface HerdrStateOptions {
 
 /**
  * Fire-and-forget report. Returns immediately; never throws.
+ * Debug logs every report so state transitions can be observed
+ * (e.g. a sound trigger on the "blocked" report when asking the user).
  */
-export function reportAgentState(state: "idle" | "working" | "blocked", options?: HerdrStateOptions): void {
+export function reportAgentState(
+  state: "idle" | "working" | "blocked",
+  options?: HerdrStateOptions,
+  onDebug?: DebugSink,
+): void {
   if (!herdrAvailable()) return;
   const pane = process.env.HERDR_PANE_ID as string;
   const bin = process.env.HERDR_BIN_PATH as string;
@@ -58,6 +65,8 @@ export function reportAgentState(state: "idle" | "working" | "blocked", options?
   if (options?.message) {
     args.push("--message", options.message);
   }
+
+  onDebug?.(`Herdr report: pane=${pane} state=${state}${options?.message ? ` message=${JSON.stringify(options.message)}` : ""}`);
 
   try {
     const child = spawn(bin, args, { stdio: "ignore", detached: true });

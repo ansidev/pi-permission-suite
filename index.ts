@@ -17,6 +17,7 @@ import { registerJevProvider } from "./jev-provider.ts";
 import { createHttpDecisionProviderFromDecision } from "./http-decision-provider.ts";
 import { buildAuditEntry, parseAuditConfig, writeAuditEntry } from "./decision-audit.ts";
 import { herdrAvailable, reportAgentState, releaseAgent } from "./herdr-reporter.ts";
+import { tagged, type DebugSink } from "./debug-log.ts";
 
 // ─── Mode configuration ──────────────────────────────────────────────
 
@@ -47,6 +48,11 @@ function createState(): SuiteState {
 }
 
 function cfg(m: ApprovalMode) { return MODE[m]; }
+
+/** Debug sink for herdr state reports; undefined while debug is off. */
+function herdrDebugSink(state: SuiteState): DebugSink | undefined {
+  return state.debug ? (m) => console.error(tagged(m)) : undefined;
+}
 
 function apply(state: SuiteState, m: ApprovalMode, pi: ExtensionAPI) {
   state.mode = m;
@@ -192,7 +198,7 @@ async function handleToolCall(
     }
     state.stats.denied++;
     const reason = `${cfg(state.mode).icon} ${state.mode.toUpperCase()}: ${toolName} disabled`;
-    if (state.debug) ctx.ui.notify(`Asking the user to approve: tool=${toolName} reason=${reason}`, "info");
+    if (state.debug) ctx.ui.notify(tagged(`Asking the user to approve: tool=${toolName} reason=${reason}`), "info");
     return { block: true, reason };
   }
 
@@ -212,7 +218,7 @@ async function handleToolCall(
     const audit = parseAuditConfig((state.rules.getRawDecisionConfig() as { audit?: unknown } | undefined)?.audit);
     const decision = await autoApprove(ctx, request, decisionConfig, ctx.signal, (res, out) =>
       writeAuditEntry(buildAuditEntry(request, res, out.approved, out.source === "human"), audit),
-      state.debug ? (m) => ctx.ui.notify(m, "info") : undefined);
+      state.debug ? ((m: string) => ctx.ui.notify(tagged(m), "info")) : undefined);
 
     if (decision.approved) {
       state.stats.approved++;
@@ -282,11 +288,11 @@ export default function(pi: ExtensionAPI): void {
 
   pi.on("tool_call", (event, ctx) => handleToolCall(event, ctx, state));
   pi.on("before_agent_start", () => {
-    reportAgentState("working");
+    reportAgentState("working", undefined, herdrDebugSink(state));
     return handleBeforeAgentStart(state);
   });
-  pi.on("agent_end", () => reportAgentState("idle"));
-  pi.on("agent_settled", () => reportAgentState("idle"));
+  pi.on("agent_end", () => reportAgentState("idle", undefined, herdrDebugSink(state)));
+  pi.on("agent_settled", () => reportAgentState("idle", undefined, herdrDebugSink(state)));
   pi.on("session_start", (_event, ctx) => handleSessionStart(ctx, state));
   pi.on("session_shutdown", () => releaseAgent());
 }

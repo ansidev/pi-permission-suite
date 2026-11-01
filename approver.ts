@@ -79,7 +79,7 @@ async function escalate(
   onDebug?.(`Pausing to ask the user: tool=${toolName} reason=${reason}`);
   if (!ctx.hasUI) return { approved: false, source: "human", reason: "No UI" };
   const fmt = formatCall(toolName, input);
-  if (herdrAvailable()) reportAgentState("blocked", { message: `Approval uncertain: ${toolName}` });
+  if (herdrAvailable()) reportAgentState("blocked", { message: `Approval uncertain: ${toolName}` }, onDebug);
   const c = await ctx.ui.select(`🤖 Approval uncertain\n\n${fmt}\n${reason}`, ["✅ Approve", "❌ Reject"]);
   return { approved: c?.includes("Approve") ?? false, source: "human" };
 }

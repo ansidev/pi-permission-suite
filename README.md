@@ -255,6 +255,7 @@ pi-permission-suite/
 ├── jev-provider.ts       # Jev (System One) decision provider
 ├── http-decision-provider.ts # Generic HTTP decision provider
 ├── decision-audit.ts     # Decision audit log (JSONL)
+├── debug-log.ts          # Tagged debug logging ([pi-permission-suite] prefix)
 ├── herdr-reporter.ts     # Herdr agent-state reporting (no-op outside Herdr)
 ├── subprocess-runner.ts  # Subprocess runner
 ├── bash-parser.ts        # tree-sitter bash parser

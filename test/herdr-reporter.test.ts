@@ -1,5 +1,6 @@
 import { test, expect, beforeEach, afterEach, describe } from "bun:test";
 import { herdrAvailable, reportAgentState, releaseAgent } from "../herdr-reporter.ts";
+import { DEBUG_TAG } from "../debug-log.ts";
 
 const ENV_KEYS = ["HERDR_ENV", "HERDR_PANE_ID", "HERDR_BIN_PATH", "HERDR_SOCKET_PATH"];
 
@@ -132,6 +133,34 @@ describe("state reporting inside herdr", () => {
     const blocked = byState.get("blocked")!;
     const mi = blocked.indexOf("--message");
     expect(blocked.slice(mi + 1).join(" ")).toBe("Approval uncertain: bash");
+  });
+
+  test("reportAgentState emits a tagged debug log for every report", () => {
+    const lines: string[] = [];
+    const orig = console.error;
+    console.error = (m: string) => lines.push(m);
+    try {
+      reportAgentState("working", undefined, (m) => lines.push(m));
+      reportAgentState("blocked", { message: "Approval uncertain: bash" }, (m) => lines.push(m));
+    } finally {
+      console.error = orig;
+    }
+    expect(lines).toEqual([
+      expect.stringMatching(/^\[pi-permission-suite\] Herdr report: pane=w1:p1 state=working$/),
+      expect.stringMatching(/^\[pi-permission-suite\] Herdr report: pane=w1:p1 state=blocked message="Approval uncertain: bash"$/),
+    ]);
+  });
+
+  test("reportAgentState is silent without a debug sink", () => {
+    const lines: string[] = [];
+    const orig = console.error;
+    console.error = (m: string) => lines.push(m);
+    try {
+      reportAgentState("working");
+    } finally {
+      console.error = orig;
+    }
+    expect(lines).toEqual([]);
   });
 
   test("releaseAgent invokes pane release-agent", async () => {
