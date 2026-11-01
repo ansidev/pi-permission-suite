@@ -1,5 +1,5 @@
-import { test, expect, beforeEach } from "bun:test";
-import { autoApprove } from "../approver.ts";
+import { test, expect, beforeEach, describe } from "bun:test";
+import { autoApprove, registerHerdrEventBus, notifyHerdrBlocked, notifyHerdrBlockedEnd } from "../approver.ts";
 import {
   DEFAULT_DECISION_CONFIG,
   clearDecisionProviders,
@@ -78,4 +78,30 @@ test("rule deny never consults provider", async () => {
   const { ctx } = fakeCtx("✅ Approve");
   expect((await autoApprove(ctx, req({ ruleResult: "deny" }), cfg)).approved).toBe(false);
   expect(called).toBe(false);
+});
+
+describe("herdr blocked event", () => {
+  test("notifyHerdrBlocked emits herdr:blocked active with label", () => {
+    const emitted: Array<[string, unknown]> = [];
+    registerHerdrEventBus({ emit: (name, data) => emitted.push([name, data]) });
+    const logs: string[] = [];
+    notifyHerdrBlocked("Approval uncertain: bash", (m) => logs.push(m));
+    expect(emitted).toEqual([["herdr:blocked", { active: true, label: "Approval uncertain: bash" }]]);
+    expect(logs).toEqual([expect.stringMatching(/^\[pi-permission-suite\] Herdr blocked: label="Approval uncertain: bash"$/)]);
+  });
+
+  test("notifyHerdrBlockedEnd emits herdr:blocked inactive", () => {
+    const emitted: Array<[string, unknown]> = [];
+    registerHerdrEventBus({ emit: (name, data) => emitted.push([name, data]) });
+    notifyHerdrBlockedEnd();
+    expect(emitted).toEqual([["herdr:blocked", { active: false }]]);
+  });
+
+  test("is a no-op without a registered bus and never throws on emit errors", () => {
+    registerHerdrEventBus({ emit: () => { throw new Error("bus down"); } });
+    expect(() => notifyHerdrBlocked("x")).not.toThrow();
+    expect(() => notifyHerdrBlockedEnd()).not.toThrow();
+    registerHerdrEventBus(undefined as never);
+    expect(() => notifyHerdrBlocked("x")).not.toThrow();
+  });
 });

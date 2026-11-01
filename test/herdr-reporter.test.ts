@@ -99,6 +99,8 @@ describe("outside herdr", () => {
 });
 
 describe("state reporting inside herdr", () => {
+  beforeEach(enableHerdr);
+
   test("reportAgentState invokes pane report-agent with state, source, agent and seq", async () => {
     const calls = await recordSpawns(() => {
       reportAgentState("working");

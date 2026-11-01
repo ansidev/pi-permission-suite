@@ -17,6 +17,7 @@ import { registerJevProvider } from "./jev-provider.ts";
 import { createHttpDecisionProviderFromDecision } from "./http-decision-provider.ts";
 import { buildAuditEntry, parseAuditConfig, writeAuditEntry } from "./decision-audit.ts";
 import { herdrAvailable, reportAgentState, releaseAgent } from "./herdr-reporter.ts";
+import { registerHerdrEventBus } from "./approver.ts";
 import { tagged, type DebugSink } from "./debug-log.ts";
 
 // ─── Mode configuration ──────────────────────────────────────────────
@@ -277,6 +278,7 @@ function handleSessionStart(
 export default function(pi: ExtensionAPI): void {
   const state = createState();
   registerJevProvider();
+  registerHerdrEventBus(pi.events);
   registerDecisionProvider(subagentProvider);
   const http = createHttpDecisionProviderFromDecision(state.rules.getRawDecisionConfig());
   if (http) registerDecisionProvider(http);

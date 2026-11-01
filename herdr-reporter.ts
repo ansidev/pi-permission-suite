@@ -10,6 +10,7 @@
 
 import { spawn } from "node:child_process";
 import { DEBUG_TAG, type DebugSink } from "./debug-log.ts";
+import { tagged } from "./debug-log.ts";
 
 const SOURCE = "pi-permission-suite";
 const AGENT = "pi";
@@ -66,7 +67,7 @@ export function reportAgentState(
     args.push("--message", options.message);
   }
 
-  onDebug?.(`Herdr report: pane=${pane} state=${state}${options?.message ? ` message=${JSON.stringify(options.message)}` : ""}`);
+  onDebug?.(tagged(`Herdr report: pane=${pane} state=${state}${options?.message ? ` message=${JSON.stringify(options.message)}` : ""}`));
 
   try {
     const child = spawn(bin, args, { stdio: "ignore", detached: true });

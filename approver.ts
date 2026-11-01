@@ -7,6 +7,7 @@
  */
 
 import { herdrAvailable, reportAgentState } from "./herdr-reporter.ts";
+import { tagged, type DebugSink } from "./debug-log.ts";
 import { runSubprocess, loadAgent } from "./subprocess-runner.ts";
 import type { ApprovalDecision } from "./types.ts";
 import {
@@ -20,6 +21,42 @@ import {
 } from "./decision-provider.ts";
 
 const AGENT_NAME = "approver";
+
+/** Event bus of the host extension (set once from index.ts via registerHerdrEventBus). */
+let herdrEvents: { emit: (name: string, data: unknown) => void } | undefined;
+
+/**
+ * Captures pi.events so escalate() can emit `herdr:blocked` to herdr's
+ * managed integration (herdr-agent-state.ts), which listens there.
+ */
+export function registerHerdrEventBus(events: { emit: (name: string, data: unknown) => void }): void {
+  herdrEvents = events;
+}
+
+// ─── Herdr blocked event ─────────────────────────────────────────
+
+/**
+ * Emits `herdr:blocked` so herdr drives its pane into the blocked state
+ * while the user is being asked. `notifyHerdrBlockedEnd` must be called
+ * after the question resolves. Never throws.
+ */
+export function notifyHerdrBlocked(label: string, onDebug?: DebugSink): void {
+  try {
+    herdrEvents?.emit("herdr:blocked", { active: true, label });
+    onDebug?.(tagged(`Herdr blocked: label=${JSON.stringify(label)}`));
+  } catch {
+    // event bus must never affect the decision flow
+  }
+}
+
+export function notifyHerdrBlockedEnd(onDebug?: DebugSink): void {
+  try {
+    herdrEvents?.emit("herdr:blocked", { active: false });
+    onDebug?.(tagged("Herdr blocked: resolved"));
+  } catch {
+    // event bus must never affect the decision flow
+  }
+}
 
 // ─── Format tool call ────────────────────────────────────────────────
 
@@ -80,7 +117,9 @@ async function escalate(
   if (!ctx.hasUI) return { approved: false, source: "human", reason: "No UI" };
   const fmt = formatCall(toolName, input);
   if (herdrAvailable()) reportAgentState("blocked", { message: `Approval uncertain: ${toolName}` }, onDebug);
+  notifyHerdrBlocked(`Approval uncertain: ${toolName}`, onDebug);
   const c = await ctx.ui.select(`🤖 Approval uncertain\n\n${fmt}\n${reason}`, ["✅ Approve", "❌ Reject"]);
+  notifyHerdrBlockedEnd(onDebug);
   return { approved: c?.includes("Approve") ?? false, source: "human" };
 }
 
