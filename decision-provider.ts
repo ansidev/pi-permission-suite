@@ -26,6 +26,8 @@
 
 export type DecisionVerdict = "allow" | "deny" | "ask";
 
+import { tagged } from "./debug-log.ts";
+
 /** Result of the rule engine for this call (undefined = no rule matched) */
 export type RuleResult = "allow" | "deny" | undefined;
 
@@ -169,7 +171,7 @@ export async function resolveDecision(
   const debug = (m: string) => {
     try { onDebug?.(m); } catch { /* debug output must never affect the decision */ }
   };
-  debug(`[pi-permission-suite] Decision API call: provider=${provider.name} tool=${request.toolName}`);
+  debug(tagged(`Decision API call: provider=${provider.name} tool=${request.toolName}`));
 
   const ctrl = new AbortController();
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -209,8 +211,8 @@ export async function resolveDecision(
   try {
     const out = await Promise.race([call, guard]);
     debug(
-      `[pi-permission-suite] Decision API response: provider=${provider.name} verdict=${out.verdict} ` +
-      `confidence=${out.confidence} fallback=${out.fallback} reason=${out.reason}`,
+      tagged(`Decision API response: provider=${provider.name} verdict=${out.verdict} ` +
+      `confidence=${out.confidence} fallback=${out.fallback} reason=${out.reason}`),
     );
     return out;
   } finally {

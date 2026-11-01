@@ -50,9 +50,9 @@ function createState(): SuiteState {
 
 function cfg(m: ApprovalMode) { return MODE[m]; }
 
-/** Debug sink for herdr state reports; undefined while debug is off. */
-function herdrDebugSink(state: SuiteState): DebugSink | undefined {
-  return state.debug ? (m) => console.error(tagged(m)) : undefined;
+/** Debug sink for herdr state reports (messages are already tagged); undefined while debug is off. */
+function herdrDebugSink(state: SuiteState, ctx: ExtensionContext): DebugSink | undefined {
+  return state.debug ? (m) => ctx.ui.notify(m, "info") : undefined;
 }
 
 function apply(state: SuiteState, m: ApprovalMode, pi: ExtensionAPI) {
@@ -106,7 +106,7 @@ function registerSuiteCommand(pi: ExtensionAPI, state: SuiteState): void {
       const [sub, val] = (args ?? "").trim().toLowerCase().split(/\s+/);
       if (sub === "debug" && (val === "on" || val === "off")) {
         state.debug = val === "on";
-        ctx.ui.notify(`pi-permission-suite debug ${val}`, "info");
+        ctx.ui.notify(tagged(`debug ${val}`), "info");
       } else {
         ctx.ui.notify(`Usage: /pi-permission-suite debug on|off (currently ${state.debug ? "on" : "off"})`, "warning");
       }
@@ -219,7 +219,7 @@ async function handleToolCall(
     const audit = parseAuditConfig((state.rules.getRawDecisionConfig() as { audit?: unknown } | undefined)?.audit);
     const decision = await autoApprove(ctx, request, decisionConfig, ctx.signal, (res, out) =>
       writeAuditEntry(buildAuditEntry(request, res, out.approved, out.source === "human"), audit),
-      state.debug ? ((m: string) => ctx.ui.notify(tagged(m), "info")) : undefined);
+      state.debug ? ((m: string) => ctx.ui.notify(m, "info")) : undefined);
 
     if (decision.approved) {
       state.stats.approved++;
@@ -289,12 +289,12 @@ export default function(pi: ExtensionAPI): void {
   registerApprovalShortcut(pi, state);
 
   pi.on("tool_call", (event, ctx) => handleToolCall(event, ctx, state));
-  pi.on("before_agent_start", () => {
-    reportAgentState("working", undefined, herdrDebugSink(state));
+  pi.on("before_agent_start", (event, ctx) => {
+    reportAgentState("working", undefined, herdrDebugSink(state, ctx));
     return handleBeforeAgentStart(state);
   });
-  pi.on("agent_end", () => reportAgentState("idle", undefined, herdrDebugSink(state)));
-  pi.on("agent_settled", () => reportAgentState("idle", undefined, herdrDebugSink(state)));
+  pi.on("agent_end", (_event, ctx) => reportAgentState("idle", undefined, herdrDebugSink(state, ctx)));
+  pi.on("agent_settled", (_event, ctx) => reportAgentState("idle", undefined, herdrDebugSink(state, ctx)));
   pi.on("session_start", (_event, ctx) => handleSessionStart(ctx, state));
   pi.on("session_shutdown", () => releaseAgent());
 }
